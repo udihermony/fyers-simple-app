@@ -1,0 +1,20 @@
+{
+  "name": "fyers-simple-server",
+  "version": "1.0.0",
+  "main": "index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "dependencies": {
+    "cookie-parser": "1.4.6",
+    "cors": "2.8.5",
+    "dotenv": "16.4.5",
+    "express": "4.19.2",
+    "fyers-api-v3": "1.4.2"
+  },
+  "devDependencies": {
+    "nodemon": "3.1.0"
+  }
+}
