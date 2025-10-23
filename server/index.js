@@ -13,6 +13,8 @@ const {
   FYERS_SECRET_KEY,
   FYERS_REDIRECT_URL,
   FRONTEND_URL,
+  // Optional comma-separated list for previews/local dev:
+  FRONTEND_URLS = "",
   FYERS_ENABLE_LOGGING = "0",
   LOG_PATH = "/tmp"
 } = process.env;
@@ -24,13 +26,22 @@ if (!FYERS_APP_ID || !FYERS_SECRET_KEY || !FYERS_REDIRECT_URL || !FRONTEND_URL) 
 
 app.use(cookieParser());
 
-// CORS for frontend
-app.use(
-  cors({
-    origin: FRONTEND_URL,
-    credentials: true
-  })
-);
+// CORS (normalize origins, support multiple)
+const trimSlash = (s) => (s || "").replace(/\/+$/, "");
+const ALLOWED_ORIGINS = [
+  trimSlash(FRONTEND_URL),
+  ...FRONTEND_URLS.split(",").map(s => trimSlash(s.trim())).filter(Boolean)
+].filter(Boolean);
+app.use(cors({
+  origin: function (origin, callback) {
+    // Allow same-origin or server-to-server (no Origin header)
+    if (!origin) return callback(null, true);
+    const cleanOrigin = trimSlash(origin);
+    if (ALLOWED_ORIGINS.includes(cleanOrigin)) return callback(null, true);
+    return callback(new Error("Not allowed by CORS"), false);
+  },
+  credentials: true
+}));
 
 function newFyersClient() {
   const fyers = new fyersModel({
@@ -107,6 +118,25 @@ app.get("/api/me", async (req, res) => {
   } catch (e) {
     console.error("get_profile error", e);
     return res.status(500).json({ error: "Failed to fetch profile" });
+  }
+});
+
+// Quotes endpoint (demo)
+app.get("/api/quotes", async (req, res) => {
+  const accessToken = req.cookies?.fy_at;
+  if (!accessToken) return res.status(401).json({ error: "Not authenticated" });
+  try {
+    const symbolsParam = (req.query.symbols || "").toString().trim();
+    const symbols = symbolsParam
+      ? symbolsParam.split(",").map(s => s.trim()).filter(Boolean)
+      : ["NSE:SBIN-EQ", "NSE:TCS-EQ"];
+    const fyers = newFyersClient();
+    fyers.setAccessToken(accessToken);
+    const quotes = await fyers.getQuotes(symbols);
+    return res.json(quotes);
+  } catch (e) {
+    console.error("getQuotes error", e);
+    return res.status(500).json({ error: "Failed to fetch quotes" });
   }
 });
 
