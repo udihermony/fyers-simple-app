@@ -22,6 +22,8 @@ export default function Home() {
   const [symbols, setSymbols] = useState("NSE:SBIN-EQ,NSE:TCS-EQ");
   const [holdings, setHoldings] = useState(null);
   const [hLoading, setHLoading] = useState(false);
+  const [funds, setFunds] = useState(null);
+  const [fLoading, setFLoading] = useState(false);
 
   const fetchMe = async () => {
     setLoading(true);
@@ -61,6 +63,7 @@ export default function Home() {
     setProfile(null);
     setQuotes(null);
     setHoldings(null);
+    setFunds(null);
   };
 
   function maskEmail(email) {
@@ -114,6 +117,22 @@ export default function Home() {
       setHoldings({ error: "Network error" });
     } finally {
       setHLoading(false);
+    }
+  };
+
+  const fetchFunds = async () => {
+    setFLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/funds`, { credentials: "include" });
+      if (res.ok) {
+        setFunds(await res.json());
+      } else {
+        setFunds({ error: "Failed to fetch funds" });
+      }
+    } catch (e) {
+      setFunds({ error: "Network error" });
+    } finally {
+      setFLoading(false);
     }
   };
 
@@ -516,6 +535,193 @@ export default function Home() {
                 </div>
               )}
           </div>
+          
+          <div style={{ 
+            background: "linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)",
+            border: "1px solid #f59e0b",
+            borderRadius: 16,
+            padding: 24,
+            marginBottom: 24,
+            boxShadow: "0 4px 12px rgba(245, 158, 11, 0.1)"
+          }}>
+            <h2 style={{ 
+              fontSize: 20, 
+              marginTop: 0, 
+              marginBottom: 20,
+              color: "#333",
+              fontWeight: 600,
+              display: "flex",
+              alignItems: "center",
+              gap: 8
+            }}>
+              💰 Available Funds
+            </h2>
+            <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
+              <button 
+                onClick={fetchFunds} 
+                disabled={fLoading} 
+                style={{ 
+                  padding: "12px 20px", 
+                  borderRadius: 12,
+                  border: "none",
+                  background: fLoading ? "#9ca3af" : "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)",
+                  color: "#fff",
+                  fontWeight: 600,
+                  cursor: fLoading ? "not-allowed" : "pointer",
+                  fontSize: 14,
+                  transition: "all 0.2s",
+                  boxShadow: "0 4px 12px rgba(245, 158, 11, 0.3)"
+                }}
+              >
+                {fLoading ? "⏳ Loading..." : "💰 Get Funds"}
+              </button>
+            </div>
+            
+            {funds?.error && (
+              <div style={{ 
+                color: "#dc2626", 
+                background: "#fef2f2",
+                padding: 12,
+                borderRadius: 8,
+                border: "1px solid #fecaca",
+                marginBottom: 16
+              }}>
+                ❌ {funds.error}
+              </div>
+            )}
+
+            {funds && funds.s === "ok" && (
+              <div>
+                {/* Funds summary */}
+                <div style={{ 
+                  background: "#fff",
+                  borderRadius: 12,
+                  padding: 20,
+                  marginBottom: 20,
+                  border: "1px solid #e5e7eb",
+                  boxShadow: "0 2px 4px rgba(0, 0, 0, 0.05)"
+                }}>
+                  <h3 style={{ 
+                    fontSize: 16, 
+                    fontWeight: 600, 
+                    margin: "0 0 16px 0",
+                    color: "#374151"
+                  }}>💳 Fund Summary</h3>
+                  
+                  {/* Calculate totals */}
+                  {(() => {
+                    const fundsList = funds.funds ?? funds.data?.funds ?? [];
+                    const totalEquity = fundsList.reduce((sum, fund) => sum + (fund.equityAmount || 0), 0);
+                    const totalCommodity = fundsList.reduce((sum, fund) => sum + (fund.commodityAmount || 0), 0);
+                    const grandTotal = totalEquity + totalCommodity;
+                    
+                    return (
+                      <div style={{ 
+                        display: "grid", 
+                        gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", 
+                        gap: 16
+                      }}>
+                        <div style={{ textAlign: "center", padding: 12 }}>
+                          <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>Total Equity</div>
+                          <div style={{ fontSize: 18, fontWeight: 600, color: "#059669" }}>
+                            ₹{fmt(totalEquity)}
+                          </div>
+                        </div>
+                        <div style={{ textAlign: "center", padding: 12 }}>
+                          <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>Total Commodity</div>
+                          <div style={{ fontSize: 18, fontWeight: 600, color: "#dc2626" }}>
+                            ₹{fmt(totalCommodity)}
+                          </div>
+                        </div>
+                        <div style={{ textAlign: "center", padding: 12 }}>
+                          <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>Grand Total</div>
+                          <div style={{ fontSize: 20, fontWeight: 700, color: "#374151" }}>
+                            ₹{fmt(grandTotal)}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {/* Individual funds list */}
+                {(funds.funds ?? funds.data?.funds ?? []).length > 0 && (
+                  <div style={{
+                    background: "#fff",
+                    borderRadius: 12,
+                    padding: 20,
+                    border: "1px solid #e5e7eb",
+                    boxShadow: "0 2px 4px rgba(0, 0, 0, 0.05)"
+                  }}>
+                    <h3 style={{ 
+                      fontSize: 16, 
+                      fontWeight: 600, 
+                      margin: "0 0 16px 0",
+                      color: "#374151"
+                    }}>📋 Fund Details</h3>
+                    <div style={{ 
+                      fontSize: 12, 
+                      color: "#6b7280", 
+                      marginBottom: 12,
+                      fontWeight: 500,
+                      display: "grid",
+                      gridTemplateColumns: "2fr 1fr 1fr",
+                      columnGap: 12,
+                      padding: "8px 0",
+                      borderBottom: "1px solid #e5e7eb"
+                    }}>
+                      <div>Fund Title</div><div>Equity Amount</div><div>Commodity Amount</div>
+                    </div>
+                    <div style={{ display: "grid", rowGap: 8 }}>
+                      {(funds.funds ?? funds.data?.funds ?? []).map((fund, index) => (
+                        <div 
+                          key={fund.id ?? index} 
+                          style={{ 
+                            display: "grid", 
+                            gridTemplateColumns: "2fr 1fr 1fr", 
+                            columnGap: 12, 
+                            alignItems: "center",
+                            padding: "8px 0",
+                            borderBottom: index < (funds.funds ?? funds.data?.funds ?? []).length - 1 ? "1px solid #f3f4f6" : "none"
+                          }}
+                        >
+                          <div style={{ fontWeight: 500, color: "#374151" }}>{fund.title}</div>
+                          <div style={{ color: "#059669", fontWeight: 500 }}>₹{fmt(fund.equityAmount)}</div>
+                          <div style={{ color: "#dc2626", fontWeight: 500 }}>₹{fmt(fund.commodityAmount)}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Raw JSON toggle */}
+                <details style={{ 
+                  marginTop: 20,
+                  padding: 12,
+                  background: "#f8f9fa",
+                  borderRadius: 8,
+                  border: "1px solid #e9ecef"
+                }}>
+                  <summary style={{ 
+                    cursor: "pointer", 
+                    fontWeight: 500,
+                    color: "#f59e0b"
+                  }}>Show raw JSON</summary>
+                  <pre style={{ 
+                    whiteSpace: "pre-wrap", 
+                    marginTop: 12,
+                    fontSize: 12,
+                    color: "#666",
+                    background: "#fff",
+                    padding: 12,
+                    borderRadius: 6,
+                    border: "1px solid #e9ecef"
+                  }}>{JSON.stringify(funds, null, 2)}</pre>
+                </details>
+              </div>
+            )}
+          </div>
+          
             <div style={{
               textAlign: "center",
               marginTop: 32

@@ -164,6 +164,30 @@ app.get("/api/holdings", async (req, res) => {
   }
 });
 
+// Funds endpoint
+app.get("/api/funds", async (req, res) => {
+  const accessToken = req.cookies?.fy_at;
+  if (!accessToken) return res.status(401).json({ error: "Not authenticated" });
+
+  try {
+    const fyers = newFyersClient();
+    fyers.setAccessToken(accessToken);
+    
+    // Client compatibility across versions
+    const fn = fyers.getFunds || fyers.get_funds || fyers.funds;
+    if (!fn) {
+      return res.status(500).json({ error: "Funds API not available in fyers-api-v3 client" });
+    }
+
+    const result = await fn.call(fyers);
+    // Expecting { s: 'ok', code: 200, message: '', funds: [...], ... } or similar shape per docs
+    return res.json(result);
+  } catch (e) {
+    console.error("funds error", e);
+    return res.status(500).json({ error: "Failed to fetch funds" });
+  }
+});
+
 // Logout: clear cookie
 app.post("/auth/logout", (req, res) => {
   const isProd = process.env.NODE_ENV === "production";
