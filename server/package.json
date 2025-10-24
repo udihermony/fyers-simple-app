@@ -4,15 +4,18 @@
   "main": "index.js",
   "type": "commonjs",
   "scripts": {
-    "start": "node index.js",
-    "dev": "nodemon index.js"
+    "start": "npm run migrate:deploy && node index.js",
+    "dev": "nodemon index.js",
+    "postinstall": "prisma generate",
+    "migrate:deploy": "prisma migrate deploy"
   },
   "dependencies": {
     "cookie-parser": "1.4.6",
     "cors": "2.8.5",
     "dotenv": "16.4.5",
     "express": "4.19.2",
-    "fyers-api-v3": "1.4.2"
+    "fyers-api-v3": "1.4.2",
+    "prisma": "^6.18.0"
   },
   "devDependencies": {
     "nodemon": "3.1.0"
