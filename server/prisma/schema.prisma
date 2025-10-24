@@ -49,3 +49,17 @@ model Session {
   @@index([userId])
   @@map("sessions")
 }
+
+model OAuthState {
+  id         String    @id @default(cuid())
+  state      String    @unique
+  createdAt  DateTime  @default(now())
+  expiresAt  DateTime
+  usedAt     DateTime?
+  ip         String?
+  userAgent  String?
+  redirectTo String?
+
+  @@index([expiresAt])
+  @@map("oauth_states")
+}
