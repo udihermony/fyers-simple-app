@@ -18,7 +18,8 @@ const {
   // Optional comma-separated list for previews/local dev:
   FRONTEND_URLS = "",
   FYERS_ENABLE_LOGGING = "0",
-  LOG_PATH = "/tmp"
+  LOG_PATH = "/tmp",
+  OAUTH_STATE_TTL_MINUTES = "10",
 } = process.env;
 
 if (!FYERS_APP_ID || !FYERS_SECRET_KEY || !FYERS_REDIRECT_URL || !FRONTEND_URL) {
@@ -27,6 +28,39 @@ if (!FYERS_APP_ID || !FYERS_SECRET_KEY || !FYERS_REDIRECT_URL || !FRONTEND_URL) 
 }
 
 app.use(cookieParser());
+
+app.set("trust proxy", 1); // ensure req.ip honors X-Forwarded-For on Railway
+
+// Helper: Random State Generation
+function randomState() {
+  // 32 bytes -> 43 char base64url
+  const b = crypto.randomBytes(32);
+  // Node may support 'base64url' directly; this polyfill is safe
+  return b.toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
+}
+
+// Helper: Get Client IP
+function getClientIp(req) {
+  const xf = req.headers["x-forwarded-for"];
+  if (typeof xf === "string" && xf.length) return xf.split(",")[0].trim();
+  return req.ip;
+}
+
+// Helper: Sanitize Return URL
+function sanitizeReturnTo(returnTo, frontendUrl) {
+  // Allow either a relative path (/something) or an absolute URL that starts with FRONTEND_URL
+  if (!returnTo) return null;
+  try {
+    if (returnTo.startsWith("/")) return returnTo;
+    const u = new URL(returnTo);
+    const f = new URL(frontendUrl);
+    if (u.origin === f.origin) return u.pathname + u.search + u.hash;
+  } catch (_) {}
+  return null;
+}
 
 // Helper: Session Expiry
 function sessionExpiryDate() {
@@ -99,12 +133,48 @@ function newFyersClient() {
 app.get("/health", (_, res) => res.json({ ok: true }));
 
 // Step 1: Start OAuth: redirect user to Fyers login
-app.get("/auth/login", (req, res) => {
+app.get("/auth/login", async (req, res) => {
   try {
     const fyers = newFyersClient();
-    const url = fyers.generateAuthCode();
-    // Optionally: add your own state param if supported. (Fyers docs may not use it.)
-    return res.redirect(url);
+    const urlStr = fyers.generateAuthCode();
+
+    // Create state
+    const state = randomState();
+    const ttlMins = parseInt(OAUTH_STATE_TTL_MINUTES, 10) || 10;
+    const expiresAt = new Date(Date.now() + ttlMins * 60 * 1000);
+
+    // Optional return_to
+    const returnTo = sanitizeReturnTo(
+      req.query.return_to?.toString() || "",
+      FRONTEND_URL
+    );
+
+    // Persist state
+    await prisma.oAuthState.create({
+      data: {
+        state,
+        expiresAt,
+        ip: getClientIp(req),
+        userAgent: req.headers["user-agent"] || null,
+        redirectTo: returnTo,
+      }
+    });
+
+    // Append state to Fyers URL
+    const u = new URL(urlStr);
+    u.searchParams.set("state", state);
+
+    // Small cleanup: optionally purge old/expired states in the background
+    prisma.oAuthState.deleteMany({
+      where: {
+        OR: [
+          { expiresAt: { lt: new Date() } },
+          { usedAt: { not: null } }
+        ]
+      }
+    }).catch(() => {});
+
+    return res.redirect(u.toString());
   } catch (e) {
     console.error("Error generating auth code URL", e);
     return res.status(500).json({ error: "Unable to start OAuth" });
@@ -114,9 +184,47 @@ app.get("/auth/login", (req, res) => {
 // Step 2: Callback from Fyers -> exchange auth code for access token
 app.get("/auth/callback", async (req, res) => {
   const authCode = req.query.auth_code || req.query.auth_code_v2;
+  const stateParam = req.query.state;
+
   if (!authCode) return res.status(400).send("Missing auth_code");
-  
+  if (!stateParam) return res.status(400).send("Missing state");
+
+  let redirectTo = null;
+
   try {
+    await prisma.$transaction(async (tx) => {
+      // Load state
+      const rec = await tx.oAuthState.findUnique({
+        where: { state: stateParam.toString() }
+      });
+      
+      if (!rec) {
+        throw new Error("Invalid state");
+      }
+      
+      if (rec.expiresAt < new Date()) {
+        // delete expired to keep table tidy
+        await tx.oAuthState.delete({ where: { state: rec.state } })
+          .catch(() => {});
+        throw new Error("State expired");
+      }
+
+      // OPTIONAL: Soft-validate IP/UA; don't hard-fail if behind proxies or UA changes
+      // const ip = getClientIp(req);
+      // if (rec.ip && rec.ip !== ip) {
+      //   console.warn("OAuth state IP mismatch", { recIp: rec.ip, ip });
+      // }
+      // if (rec.userAgent && rec.userAgent !== (req.headers["user-agent"] || null)) {
+      //   console.warn("OAuth state UA mismatch");
+      // }
+
+      redirectTo = rec.redirectTo;
+
+      // One-time use: delete the record to prevent replay
+      await tx.oAuthState.delete({ where: { state: rec.state } });
+    });
+
+    // Proceed with token exchange and login flow
     const fyers = newFyersClient();
     const tokenResp = await fyers.generate_access_token({
       client_id: FYERS_APP_ID,
@@ -167,7 +275,7 @@ app.get("/auth/callback", async (req, res) => {
       data: {
         userId: user.id,
         expiresAt: sessionExpiryDate(),
-        ip: req.headers["x-forwarded-for"]?.toString().split(",")[0]?.trim() || req.socket.remoteAddress || null,
+        ip: getClientIp(req),
         userAgent: req.headers["user-agent"] || null
       }
     });
@@ -187,10 +295,18 @@ app.get("/auth/callback", async (req, res) => {
       // maxAge optional; we rely on DB expiresAt for validity
     });
 
-    return res.redirect(FRONTEND_URL);
+    // Redirect back to frontend (use return_to if provided and sanitized)
+    const finalRedirect = redirectTo
+      ? new URL(redirectTo, FRONTEND_URL).toString()
+      : FRONTEND_URL;
+
+    return res.redirect(finalRedirect);
   } catch (e) {
-    console.error("Token exchange/callback error", e);
-    return res.status(500).send("Token exchange failed");
+    console.error("Token exchange or state validation error", e);
+    return res.status(400).send(`
+      <h1>Login session expired</h1>
+      <p>Please <a href="${FRONTEND_URL}">click here</a> to try again.</p>
+    `);
   }
 });
 
