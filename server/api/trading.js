@@ -15,8 +15,8 @@ class TradingAPI {
    * @param {Object} app - Express app
    */
   setupRoutes(app) {
-    // Webhook endpoint
-    app.post("/webhooks/chartlink/:userToken", (req, res) => {
+    // Webhook endpoint for Chartlink (single URL for all users)
+    app.post("/webhooks/chartlink", (req, res) => {
       webhookService.processChartlinkAlert(req, res);
     });
 
@@ -421,26 +421,14 @@ class TradingAPI {
     }
 
     try {
-      const userId = req.user.id;
-      let settings = await prisma.userSettings.findUnique({
-        where: { userId }
-      });
-
-      // If no settings exist, create them
-      if (!settings) {
-        const webhookService = require("../services/webhookService");
-        const credentials = await webhookService.generateWebhookCredentials(userId);
-        settings = {
-          webhookToken: credentials.webhookToken,
-          webhookSecret: credentials.webhookSecret,
-          defaultMode: 'paper'
-        };
-      }
+      // Single webhook URL for all users (Chartlink model)
+      const webhookUrl = `${process.env.APP_BASE_URL || 'https://fyers-simple-app-production.up.railway.app'}/webhooks/chartlink`;
 
       res.json({
-        webhookUrl: `${process.env.APP_BASE_URL || 'https://fyers-simple-app-production.up.railway.app'}/webhooks/chartlink/${settings.webhookToken}`,
-        webhookSecret: settings.webhookSecret.substring(0, 8) + "...", // Masked
-        defaultMode: settings.defaultMode
+        webhookUrl: webhookUrl,
+        webhookSecret: "Not required for Chartlink",
+        defaultMode: 'paper',
+        description: "Single webhook URL for all Chartlink strategies. Users will receive orders based on their subscription preferences."
       });
 
     } catch (error) {

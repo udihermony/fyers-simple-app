@@ -6,9 +6,9 @@ const fyersService = require("../services/fyersService");
 
 class WebhookService {
   constructor() {
-    this.rateLimitMap = new Map(); // Track rate limits per user
+    this.rateLimitMap = new Map(); // Track rate limits per IP
     this.rateLimitWindow = 60 * 1000; // 1 minute
-    this.maxRequestsPerMinute = 100; // Max requests per minute per user
+    this.maxRequestsPerMinute = 100; // Max requests per minute per IP
   }
 
   /**
@@ -17,29 +17,21 @@ class WebhookService {
    * @param {Object} res - Express response
    */
   async processChartlinkAlert(req, res) {
-    const userToken = req.params.userToken;
-    const webhookSecret = req.headers['x-webhook-secret'] || req.query.secret;
-
     try {
-      // Validate user token (secret is optional for Chartlink)
-      const userSettings = await this.validateWebhookAuth(userToken, webhookSecret);
-      if (!userSettings) {
-        return res.status(401).json({ error: "Invalid webhook authentication" });
-      }
-
-      // Rate limiting
-      if (!this.checkRateLimit(userToken)) {
-        return res.status(429).json({ error: "Rate limit exceeded" });
-      }
-
       // Extract alert data
       const alertData = req.body;
       if (!alertData) {
         return res.status(400).json({ error: "Empty request body" });
       }
 
+      // Rate limiting by IP
+      const clientIP = req.ip || req.connection.remoteAddress;
+      if (!this.checkRateLimit(clientIP)) {
+        return res.status(429).json({ error: "Rate limit exceeded" });
+      }
+
       // Generate idempotency key
-      const idempotencyKey = this.generateIdempotencyKey(alertData, userToken);
+      const idempotencyKey = this.generateIdempotencyKey(alertData);
 
       // Check for duplicate alerts
       const existingAlert = await prisma.alert.findUnique({
@@ -55,10 +47,10 @@ class WebhookService {
       }
 
       // Process alert asynchronously
-      const alertId = await this.createAlert(userSettings.userId, alertData, idempotencyKey);
+      const alertId = await this.createAlert(alertData, idempotencyKey);
       
       // Process in background
-      this.processAlertAsync(alertId, userSettings.userId, alertData).catch(error => {
+      this.processAlertAsync(alertId, alertData).catch(error => {
         console.error(`Error processing alert ${alertId}:`, error);
       });
 
@@ -76,48 +68,19 @@ class WebhookService {
   }
 
   /**
-   * Validate webhook authentication
-   * @param {string} userToken - User webhook token
-   * @param {string} webhookSecret - Webhook secret (optional for Chartlink)
-   * @returns {Promise<Object|null>}
-   */
-  async validateWebhookAuth(userToken, webhookSecret) {
-    try {
-      const userSettings = await prisma.userSettings.findUnique({
-        where: { webhookToken: userToken },
-        include: { user: true }
-      });
-
-      if (!userSettings) {
-        return null;
-      }
-
-      // For Chartlink, secret is optional - if provided, verify it
-      if (webhookSecret && userSettings.webhookSecret !== webhookSecret) {
-        return null;
-      }
-
-      return userSettings;
-    } catch (error) {
-      console.error("Webhook auth validation error:", error);
-      return null;
-    }
-  }
-
-  /**
-   * Check rate limit for user
-   * @param {string} userToken - User token
+   * Check rate limit for IP
+   * @param {string} clientIP - Client IP address
    * @returns {boolean}
    */
-  checkRateLimit(userToken) {
+  checkRateLimit(clientIP) {
     const now = Date.now();
     const windowStart = now - this.rateLimitWindow;
     
-    if (!this.rateLimitMap.has(userToken)) {
-      this.rateLimitMap.set(userToken, []);
+    if (!this.rateLimitMap.has(clientIP)) {
+      this.rateLimitMap.set(clientIP, []);
     }
 
-    const requests = this.rateLimitMap.get(userToken);
+    const requests = this.rateLimitMap.get(clientIP);
     
     // Remove old requests
     const validRequests = requests.filter(timestamp => timestamp > windowStart);
@@ -128,7 +91,7 @@ class WebhookService {
 
     // Add current request
     validRequests.push(now);
-    this.rateLimitMap.set(userToken, validRequests);
+    this.rateLimitMap.set(clientIP, validRequests);
     
     return true;
   }
@@ -136,39 +99,40 @@ class WebhookService {
   /**
    * Generate idempotency key from alert data
    * @param {Object} alertData - Alert data
-   * @param {string} userToken - User token
    * @returns {string}
    */
-  generateIdempotencyKey(alertData, userToken) {
+  generateIdempotencyKey(alertData) {
     // Use unique_id from Chartlink if available, otherwise generate from payload
     if (alertData.unique_id) {
-      return `${userToken}_${alertData.unique_id}`;
+      return `chartlink_${alertData.unique_id}`;
     }
 
     // Generate hash from payload
     const payloadString = JSON.stringify(alertData);
     const hash = crypto.createHash('sha256').update(payloadString).digest('hex');
-    return `${userToken}_${hash.substring(0, 16)}`;
+    return `chartlink_${hash.substring(0, 16)}`;
   }
 
   /**
    * Create alert record in database
-   * @param {string} userId - User ID
    * @param {Object} alertData - Alert data
    * @param {string} idempotencyKey - Idempotency key
    * @returns {Promise<string>}
    */
-  async createAlert(userId, alertData, idempotencyKey) {
+  async createAlert(alertData, idempotencyKey) {
     // Find or create default strategy
     let strategy = await prisma.strategy.findFirst({
-      where: { userId, name: "Default Strategy" }
+      where: { 
+        name: alertData.strategy_name || "Default Chartlink Strategy"
+      }
     });
 
     if (!strategy) {
+      // Create a default strategy for Chartlink
       strategy = await prisma.strategy.create({
         data: {
-          userId,
-          name: "Default Strategy",
+          userId: "system", // We'll handle user mapping later
+          name: alertData.strategy_name || "Default Chartlink Strategy",
           modeOverride: null,
           requireManualReview: false,
           allowedSymbols: [],
@@ -183,7 +147,7 @@ class WebhookService {
 
     const alert = await prisma.alert.create({
       data: {
-        userId,
+        userId: "system", // We'll map to actual users during processing
         strategyId: strategy.id,
         source: "chartlink",
         rawPayload: alertData,
@@ -198,10 +162,9 @@ class WebhookService {
   /**
    * Process alert asynchronously
    * @param {string} alertId - Alert ID
-   * @param {string} userId - User ID
    * @param {Object} alertData - Alert data
    */
-  async processAlertAsync(alertId, userId, alertData) {
+  async processAlertAsync(alertId, alertData) {
     try {
       // Map Chartlink fields to our order format
       const orderData = this.mapChartlinkToOrder(alertData);
@@ -211,42 +174,94 @@ class WebhookService {
         return;
       }
 
-      // Get user access token
-      const token = await prisma.fyersToken.findFirst({
-        where: { userId, appId: process.env.FYERS_APP_ID }
-      });
-
-      if (!token) {
-        await this.rejectAlert(alertId, "No Fyers access token found");
+      // Find users who want to follow this strategy
+      const users = await this.getUsersForStrategy(alertData);
+      
+      if (users.length === 0) {
+        await this.rejectAlert(alertId, "No users subscribed to this strategy");
         return;
       }
 
-      // Validate order
-      const validation = await orderValidation.validateOrder(orderData, userId, token.accessToken);
-      
-      if (!validation.isValid) {
-        await this.rejectAlert(alertId, `Validation failed: ${validation.errors.join(', ')}`);
-        return;
+      // Process order for each user
+      for (const user of users) {
+        try {
+          await this.processOrderForUser(alertId, orderData, user);
+        } catch (error) {
+          console.error(`Error processing order for user ${user.id}:`, error);
+        }
       }
 
-      // Determine execution mode
-      const mode = this.determineExecutionMode(alertData, userId);
-      
-      if (mode === 'paper') {
-        // Submit to paper engine
-        const order = await paperEngine.submitOrder(orderData, userId, token.accessToken);
-        await this.updateAlertStatus(alertId, 'processed', order.id);
-      } else {
-        // Submit to live execution
-        const result = await fyersService.placeOrder(orderData, userId);
-        await this.updateAlertStatus(alertId, 'processed', result.order.id);
-      }
-
-      console.log(`Alert ${alertId} processed successfully`);
+      await this.updateAlertStatus(alertId, 'processed');
+      console.log(`Alert ${alertId} processed for ${users.length} users`);
 
     } catch (error) {
       console.error(`Error processing alert ${alertId}:`, error);
       await this.rejectAlert(alertId, `Processing error: ${error.message}`);
+    }
+  }
+
+  /**
+   * Get users who want to follow this strategy
+   * @param {Object} alertData - Alert data
+   * @returns {Promise<Array>}
+   */
+  async getUsersForStrategy(alertData) {
+    // For now, return all users who have Fyers tokens
+    // Later, you can add strategy subscription logic
+    const users = await prisma.user.findMany({
+      where: {
+        tokens: {
+          some: {
+            appId: process.env.FYERS_APP_ID
+          }
+        }
+      },
+      include: {
+        tokens: {
+          where: {
+            appId: process.env.FYERS_APP_ID
+          }
+        }
+      }
+    });
+
+    return users;
+  }
+
+  /**
+   * Process order for a specific user
+   * @param {string} alertId - Alert ID
+   * @param {Object} orderData - Order data
+   * @param {Object} user - User object
+   */
+  async processOrderForUser(alertId, orderData, user) {
+    try {
+      const token = user.tokens[0];
+      if (!token) return;
+
+      // Validate order
+      const validation = await orderValidation.validateOrder(orderData, user.id, token.accessToken);
+      
+      if (!validation.isValid) {
+        console.log(`Order validation failed for user ${user.id}: ${validation.errors.join(', ')}`);
+        return;
+      }
+
+      // Determine execution mode (default to paper for safety)
+      const mode = 'paper'; // You can add user preferences later
+      
+      if (mode === 'paper') {
+        // Submit to paper engine
+        const order = await paperEngine.submitOrder(orderData, user.id, token.accessToken);
+        await this.updateAlertStatus(alertId, 'processed', order.id);
+      } else {
+        // Submit to live execution
+        const result = await fyersService.placeOrder(orderData, user.id);
+        await this.updateAlertStatus(alertId, 'processed', result.order.id);
+      }
+
+    } catch (error) {
+      console.error(`Error processing order for user ${user.id}:`, error);
     }
   }
 
@@ -333,36 +348,6 @@ class WebhookService {
   }
 
   /**
-   * Determine execution mode (paper vs live)
-   * @param {Object} alertData - Alert data
-   * @param {string} userId - User ID
-   * @returns {string}
-   */
-  async determineExecutionMode(alertData, userId) {
-    try {
-      // Check if alert specifies mode
-      if (alertData.mode) {
-        return alertData.mode.toLowerCase();
-      }
-
-      // Get user settings
-      const userSettings = await prisma.userSettings.findUnique({
-        where: { userId }
-      });
-
-      if (userSettings) {
-        return userSettings.defaultMode;
-      }
-
-      // Default to paper for safety
-      return 'paper';
-    } catch (error) {
-      console.error("Error determining execution mode:", error);
-      return 'paper';
-    }
-  }
-
-  /**
    * Update alert status
    * @param {string} alertId - Alert ID
    * @param {string} status - New status
@@ -409,36 +394,6 @@ class WebhookService {
     });
 
     console.log(`Alert ${alertId} rejected: ${reason}`);
-  }
-
-  /**
-   * Generate new webhook URL and secret for user
-   * @param {string} userId - User ID
-   * @returns {Promise<Object>}
-   */
-  async generateWebhookCredentials(userId) {
-    const webhookToken = crypto.randomBytes(32).toString('hex');
-    const webhookSecret = crypto.randomBytes(32).toString('hex');
-
-    await prisma.userSettings.upsert({
-      where: { userId },
-      update: {
-        webhookToken,
-        webhookSecret
-      },
-      create: {
-        userId,
-        webhookToken,
-        webhookSecret,
-        defaultMode: 'paper'
-      }
-    });
-
-    return {
-      webhookToken,
-      webhookSecret,
-      webhookUrl: `${process.env.APP_BASE_URL || 'http://localhost:8080'}/webhooks/chartlink/${webhookToken}`
-    };
   }
 
   /**
