@@ -8,20 +8,21 @@ datasource db {
 }
 
 model User {
-  id        String        @id @default(cuid())
-  fyId      String        @unique
-  name      String?
-  email     String?
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
-  tokens    FyersToken[]
-  sessions  Session[]
-  strategies Strategy[]
-  alerts    Alert[]
-  orders    Order[]
-  positions Position[]
-  portfolios Portfolio[]
-  settings  UserSettings?
+  id          String        @id @default(cuid())
+  fyId        String        @unique
+  name        String?
+  email       String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  tokens      FyersToken[]
+  sessions    Session[]
+  strategies  Strategy[]
+  alerts      Alert[]
+  orders      Order[]
+  positions   Position[]
+  portfolios  Portfolio[]
+  settings    UserSettings?
+  simulation  Simulation?
 
   @@map("users")
 }
@@ -232,4 +233,27 @@ model UserSettings {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("user_settings")
+}
+
+model Simulation {
+  id                  String   @id @default(cuid())
+  userId              String   @unique
+  isRunning           Boolean  @default(false)
+  allocatedFunds      Float    @default(100000)
+  currentBalance      Float    @default(100000)
+  totalTrades         Int      @default(0)
+  winningTrades       Int      @default(0)
+  losingTrades        Int      @default(0)
+  totalPnL            Float    @default(0)
+  startTime           DateTime?
+  endTime             DateTime?
+  strategies          Json?    // Array of active strategies
+  simulationOrders    Json?    // Recent simulation orders
+  simulationPositions Json?    // Current simulation positions
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("simulations")
 }

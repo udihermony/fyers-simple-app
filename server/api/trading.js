@@ -54,6 +54,12 @@ class TradingAPI {
     app.get("/api/alerts", this.getAlerts.bind(this));
     app.get("/api/alerts/:id", this.getAlert.bind(this));
 
+    // Simulation endpoints
+    app.post("/api/simulation/start", this.startSimulation.bind(this));
+    app.post("/api/simulation/stop", this.stopSimulation.bind(this));
+    app.post("/api/simulation/reset", this.resetSimulation.bind(this));
+    app.get("/api/simulation/status", this.getSimulationStatus.bind(this));
+
     // Health and stats endpoints
     app.get("/api/trading/health", this.getTradingHealth.bind(this));
     app.get("/api/trading/stats", this.getTradingStats.bind(this));
@@ -740,6 +746,281 @@ class TradingAPI {
 
     } catch (error) {
       console.error("Error fetching trading stats:", error);
+      res.status(500).json({ error: error.message });
+    }
+  }
+
+  /**
+   * Start paper trading simulation
+   */
+  async startSimulation(req, res) {
+    if (!req.user) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+
+    try {
+      const userId = req.user.id;
+      const { allocatedFunds = 100000 } = req.body;
+
+      // Check if simulation is already running
+      const existingSimulation = await prisma.simulation.findFirst({
+        where: { userId, isRunning: true }
+      });
+
+      if (existingSimulation) {
+        return res.status(400).json({ error: "Simulation is already running" });
+      }
+
+      // Create or update simulation
+      const simulation = await prisma.simulation.upsert({
+        where: { userId },
+        update: {
+          isRunning: true,
+          allocatedFunds,
+          currentBalance: allocatedFunds,
+          startTime: new Date(),
+          totalTrades: 0,
+          winningTrades: 0,
+          losingTrades: 0,
+          totalPnL: 0
+        },
+        create: {
+          userId,
+          isRunning: true,
+          allocatedFunds,
+          currentBalance: allocatedFunds,
+          startTime: new Date(),
+          totalTrades: 0,
+          winningTrades: 0,
+          losingTrades: 0,
+          totalPnL: 0,
+          strategies: [],
+          simulationOrders: [],
+          simulationPositions: []
+        }
+      });
+
+      // Get active strategies from Chartlink alerts
+      const strategies = await prisma.strategy.findMany({
+        where: { userId },
+        include: {
+          alerts: {
+            where: { status: 'active' },
+            take: 1
+          }
+        }
+      });
+
+      // Update simulation with strategies
+      await prisma.simulation.update({
+        where: { userId },
+        data: {
+          strategies: strategies.map(s => ({
+            id: s.id,
+            name: s.name,
+            trades: 0,
+            pnl: 0
+          }))
+        }
+      });
+
+      res.json({
+        success: true,
+        simulation,
+        strategies: strategies.map(s => ({
+          id: s.id,
+          name: s.name,
+          trades: 0,
+          pnl: 0
+        })),
+        message: "Simulation started successfully"
+      });
+
+    } catch (error) {
+      console.error("Error starting simulation:", error);
+      res.status(500).json({ error: error.message });
+    }
+  }
+
+  /**
+   * Stop paper trading simulation
+   */
+  async stopSimulation(req, res) {
+    if (!req.user) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+
+    try {
+      const userId = req.user.id;
+
+      const simulation = await prisma.simulation.findFirst({
+        where: { userId, isRunning: true }
+      });
+
+      if (!simulation) {
+        return res.status(400).json({ error: "No active simulation found" });
+      }
+
+      // Calculate final statistics
+      const orders = await prisma.order.findMany({
+        where: { userId, mode: 'paper' },
+        include: { executions: true }
+      });
+
+      let totalTrades = 0;
+      let winningTrades = 0;
+      let losingTrades = 0;
+      let totalPnL = 0;
+
+      orders.forEach(order => {
+        if (order.executions && order.executions.length > 0) {
+          totalTrades++;
+          const pnl = order.executions.reduce((sum, exec) => sum + (exec.pnl || 0), 0);
+          totalPnL += pnl;
+          if (pnl > 0) winningTrades++;
+          else if (pnl < 0) losingTrades++;
+        }
+      });
+
+      // Update simulation
+      await prisma.simulation.update({
+        where: { userId },
+        data: {
+          isRunning: false,
+          endTime: new Date(),
+          totalTrades,
+          winningTrades,
+          losingTrades,
+          totalPnL,
+          currentBalance: simulation.allocatedFunds + totalPnL
+        }
+      });
+
+      res.json({
+        success: true,
+        totalTrades,
+        winningTrades,
+        losingTrades,
+        totalPnL,
+        message: "Simulation stopped successfully"
+      });
+
+    } catch (error) {
+      console.error("Error stopping simulation:", error);
+      res.status(500).json({ error: error.message });
+    }
+  }
+
+  /**
+   * Reset paper trading simulation
+   */
+  async resetSimulation(req, res) {
+    if (!req.user) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+
+    try {
+      const userId = req.user.id;
+
+      // Delete all paper trading data
+      await prisma.$transaction([
+        prisma.execution.deleteMany({
+          where: { order: { userId, mode: 'paper' } }
+        }),
+        prisma.order.deleteMany({
+          where: { userId, mode: 'paper' }
+        }),
+        prisma.position.deleteMany({
+          where: { userId, mode: 'paper' }
+        }),
+        prisma.portfolio.deleteMany({
+          where: { userId, mode: 'paper' }
+        }),
+        prisma.simulation.deleteMany({
+          where: { userId }
+        })
+      ]);
+
+      res.json({
+        success: true,
+        message: "Simulation reset successfully"
+      });
+
+    } catch (error) {
+      console.error("Error resetting simulation:", error);
+      res.status(500).json({ error: error.message });
+    }
+  }
+
+  /**
+   * Get simulation status
+   */
+  async getSimulationStatus(req, res) {
+    if (!req.user) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+
+    try {
+      const userId = req.user.id;
+
+      const simulation = await prisma.simulation.findFirst({
+        where: { userId }
+      });
+
+      if (!simulation) {
+        return res.json({
+          isRunning: false,
+          allocatedFunds: 100000,
+          currentBalance: 100000,
+          totalTrades: 0,
+          winningTrades: 0,
+          losingTrades: 0,
+          totalPnL: 0,
+          startTime: null,
+          strategies: [],
+          simulationOrders: [],
+          simulationPositions: []
+        });
+      }
+
+      // Get recent simulation orders
+      const simulationOrders = await prisma.order.findMany({
+        where: { userId, mode: 'paper' },
+        include: { executions: true },
+        orderBy: { createdAt: 'desc' },
+        take: 50
+      });
+
+      // Get simulation positions
+      const simulationPositions = await prisma.position.findMany({
+        where: { userId, mode: 'paper' },
+        orderBy: { updatedAt: 'desc' }
+      });
+
+      res.json({
+        ...simulation,
+        simulationOrders: simulationOrders.map(order => ({
+          id: order.id,
+          symbol: order.symbol,
+          side: order.side,
+          qty: order.qty,
+          price: order.executions?.[0]?.price || order.limitPrice,
+          status: order.state,
+          strategy: order.strategy?.name || 'Manual',
+          timestamp: order.createdAt
+        })),
+        simulationPositions: simulationPositions.map(pos => ({
+          id: pos.id,
+          symbol: pos.symbol,
+          qty: pos.qty,
+          avgPrice: pos.avgPrice,
+          mtm: pos.mtm,
+          updatedAt: pos.updatedAt
+        }))
+      });
+
+    } catch (error) {
+      console.error("Error fetching simulation status:", error);
       res.status(500).json({ error: error.message });
     }
   }

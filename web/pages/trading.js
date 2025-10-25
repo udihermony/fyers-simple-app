@@ -283,6 +283,19 @@ export default function TradingDashboard() {
   const [portfolio, setPortfolio] = useState(null);
   const [webhookSettings, setWebhookSettings] = useState(null);
   const [alerts, setAlerts] = useState([]);
+  const [simulationState, setSimulationState] = useState({
+    isRunning: false,
+    allocatedFunds: 100000, // Default 1 lakh
+    currentBalance: 100000,
+    totalTrades: 0,
+    winningTrades: 0,
+    losingTrades: 0,
+    totalPnL: 0,
+    startTime: null,
+    strategies: [],
+    simulationOrders: [],
+    simulationPositions: []
+  });
   const [orderForm, setOrderForm] = useState({
     symbol: 'NSE:SBIN-EQ',
     side: 1,
@@ -397,6 +410,7 @@ export default function TradingDashboard() {
       fetchPortfolio();
       fetchWebhookSettings();
       fetchAlerts();
+      fetchSimulationData();
     }
   }, [profile]);
 
@@ -480,6 +494,119 @@ export default function TradingDashboard() {
     } catch (e) {
       console.error("Error rotating webhook credentials:", e);
       alert("Error rotating webhook credentials");
+    }
+  };
+
+  // Paper Trading Simulation Functions
+  const startSimulation = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/simulation/start`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          allocatedFunds: simulationState.allocatedFunds
+        })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setSimulationState(prev => ({
+          ...prev,
+          isRunning: true,
+          startTime: new Date(),
+          currentBalance: data.currentBalance || prev.allocatedFunds,
+          strategies: data.strategies || []
+        }));
+        alert("Simulation started successfully!");
+      } else {
+        const error = await res.json();
+        alert(`Error starting simulation: ${error.error}`);
+      }
+    } catch (e) {
+      console.error("Error starting simulation:", e);
+      alert("Error starting simulation");
+    }
+  };
+
+  const stopSimulation = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/simulation/stop`, {
+        method: 'POST',
+        credentials: "include"
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setSimulationState(prev => ({
+          ...prev,
+          isRunning: false,
+          totalPnL: data.totalPnL || prev.totalPnL,
+          totalTrades: data.totalTrades || prev.totalTrades,
+          winningTrades: data.winningTrades || prev.winningTrades,
+          losingTrades: data.losingTrades || prev.losingTrades
+        }));
+        alert("Simulation stopped successfully!");
+      } else {
+        const error = await res.json();
+        alert(`Error stopping simulation: ${error.error}`);
+      }
+    } catch (e) {
+      console.error("Error stopping simulation:", e);
+      alert("Error stopping simulation");
+    }
+  };
+
+  const fetchSimulationData = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/simulation/status`, {
+        credentials: "include"
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setSimulationState(prev => ({
+          ...prev,
+          ...data,
+          isRunning: data.isRunning || false
+        }));
+      }
+    } catch (e) {
+      console.error("Error fetching simulation data:", e);
+    }
+  };
+
+  const resetSimulation = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/simulation/reset`, {
+        method: 'POST',
+        credentials: "include"
+      });
+
+      if (res.ok) {
+        setSimulationState({
+          isRunning: false,
+          allocatedFunds: 100000,
+          currentBalance: 100000,
+          totalTrades: 0,
+          winningTrades: 0,
+          losingTrades: 0,
+          totalPnL: 0,
+          startTime: null,
+          strategies: [],
+          simulationOrders: [],
+          simulationPositions: []
+        });
+        alert("Simulation reset successfully!");
+      } else {
+        const error = await res.json();
+        alert(`Error resetting simulation: ${error.error}`);
+      }
+    } catch (e) {
+      console.error("Error resetting simulation:", e);
+      alert("Error resetting simulation");
     }
   };
 
@@ -727,6 +854,7 @@ export default function TradingDashboard() {
             <option value="positions">💼 Positions</option>
             <option value="chartlink">📡 Chartlink Alerts</option>
             <option value="place-order">📝 Place Order</option>
+            <option value="paper-trading">🎯 Paper Trading</option>
             <option value="settings">⚙️ Settings</option>
           </select>
         </div>
@@ -756,6 +884,12 @@ export default function TradingDashboard() {
             onClick={() => setActiveTab('place-order')}
           >
             📝 Place Order
+          </div>
+          <div 
+            className={`tab ${activeTab === 'paper-trading' ? 'active' : ''}`}
+            onClick={() => setActiveTab('paper-trading')}
+          >
+            🎯 Paper Trading
           </div>
           <div 
             className={`tab ${activeTab === 'settings' ? 'active' : ''}`}
@@ -1145,6 +1279,256 @@ export default function TradingDashboard() {
             >
               Place Order
             </button>
+          </div>
+        )}
+
+        {/* Paper Trading Tab */}
+        {activeTab === 'paper-trading' && (
+          <div className="trading-card">
+            <div style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: "20px"
+            }}>
+              <h3 style={{ margin: "0", color: "#1e293b" }}>Paper Trading Simulation</h3>
+              <div style={{ display: "flex", gap: "10px" }}>
+                <button 
+                  className="btn btn-primary"
+                  onClick={fetchSimulationData}
+                >
+                  Refresh
+                </button>
+                <button 
+                  className="btn btn-danger"
+                  onClick={resetSimulation}
+                  disabled={simulationState.isRunning}
+                >
+                  Reset
+                </button>
+              </div>
+            </div>
+
+            {/* Simulation Status */}
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+              gap: "20px",
+              marginBottom: "30px"
+            }}>
+              <div style={{ textAlign: "center", padding: "15px", background: "#f8fafc", borderRadius: "8px" }}>
+                <div style={{ color: "#64748b", fontSize: "0.9rem", marginBottom: "5px" }}>Status</div>
+                <div style={{ 
+                  fontSize: "1.2rem", 
+                  fontWeight: "600", 
+                  color: simulationState.isRunning ? "#10b981" : "#6b7280"
+                }}>
+                  {simulationState.isRunning ? "🟢 Running" : "🔴 Stopped"}
+                </div>
+              </div>
+              <div style={{ textAlign: "center", padding: "15px", background: "#f8fafc", borderRadius: "8px" }}>
+                <div style={{ color: "#64748b", fontSize: "0.9rem", marginBottom: "5px" }}>Allocated Funds</div>
+                <div style={{ fontSize: "1.2rem", fontWeight: "600", color: "#1e293b" }}>
+                  {formatCurrency(simulationState.allocatedFunds)}
+                </div>
+              </div>
+              <div style={{ textAlign: "center", padding: "15px", background: "#f8fafc", borderRadius: "8px" }}>
+                <div style={{ color: "#64748b", fontSize: "0.9rem", marginBottom: "5px" }}>Current Balance</div>
+                <div style={{ fontSize: "1.2rem", fontWeight: "600", color: "#1e293b" }}>
+                  {formatCurrency(simulationState.currentBalance)}
+                </div>
+              </div>
+              <div style={{ textAlign: "center", padding: "15px", background: "#f8fafc", borderRadius: "8px" }}>
+                <div style={{ color: "#64748b", fontSize: "0.9rem", marginBottom: "5px" }}>Total P&L</div>
+                <div style={{ 
+                  fontSize: "1.2rem", 
+                  fontWeight: "600", 
+                  color: simulationState.totalPnL >= 0 ? "#10b981" : "#ef4444"
+                }}>
+                  {formatCurrency(simulationState.totalPnL)}
+                </div>
+              </div>
+            </div>
+
+            {/* Performance Metrics */}
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+              gap: "15px",
+              marginBottom: "30px"
+            }}>
+              <div style={{ textAlign: "center", padding: "12px", background: "#f0f9ff", borderRadius: "8px" }}>
+                <div style={{ color: "#0369a1", fontSize: "0.8rem", marginBottom: "5px" }}>Total Trades</div>
+                <div style={{ fontSize: "1.5rem", fontWeight: "600", color: "#0369a1" }}>
+                  {simulationState.totalTrades}
+                </div>
+              </div>
+              <div style={{ textAlign: "center", padding: "12px", background: "#f0fdf4", borderRadius: "8px" }}>
+                <div style={{ color: "#166534", fontSize: "0.8rem", marginBottom: "5px" }}>Winning Trades</div>
+                <div style={{ fontSize: "1.5rem", fontWeight: "600", color: "#166534" }}>
+                  {simulationState.winningTrades}
+                </div>
+              </div>
+              <div style={{ textAlign: "center", padding: "12px", background: "#fef2f2", borderRadius: "8px" }}>
+                <div style={{ color: "#991b1b", fontSize: "0.8rem", marginBottom: "5px" }}>Losing Trades</div>
+                <div style={{ fontSize: "1.5rem", fontWeight: "600", color: "#991b1b" }}>
+                  {simulationState.losingTrades}
+                </div>
+              </div>
+              <div style={{ textAlign: "center", padding: "12px", background: "#fefce8", borderRadius: "8px" }}>
+                <div style={{ color: "#a16207", fontSize: "0.8rem", marginBottom: "5px" }}>Win Rate</div>
+                <div style={{ fontSize: "1.5rem", fontWeight: "600", color: "#a16207" }}>
+                  {simulationState.totalTrades > 0 
+                    ? `${((simulationState.winningTrades / simulationState.totalTrades) * 100).toFixed(1)}%`
+                    : "0%"
+                  }
+                </div>
+              </div>
+            </div>
+
+            {/* Simulation Controls */}
+            <div style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "20px",
+              marginBottom: "30px"
+            }}>
+              {/* Fund Allocation */}
+              <div className="form-group">
+                <label>Allocated Funds (₹)</label>
+                <input
+                  type="number"
+                  value={simulationState.allocatedFunds}
+                  onChange={(e) => setSimulationState(prev => ({
+                    ...prev,
+                    allocatedFunds: parseInt(e.target.value) || 100000,
+                    currentBalance: parseInt(e.target.value) || 100000
+                  }))}
+                  min="10000"
+                  max="10000000"
+                  step="10000"
+                  disabled={simulationState.isRunning}
+                />
+              </div>
+
+              {/* Control Buttons */}
+              <div style={{
+                display: "flex",
+                gap: "15px",
+                flexWrap: "wrap"
+              }}>
+                {!simulationState.isRunning ? (
+                  <button 
+                    className="btn btn-success"
+                    onClick={startSimulation}
+                    style={{ flex: "1", minWidth: "200px" }}
+                  >
+                    🚀 Start Simulation
+                  </button>
+                ) : (
+                  <button 
+                    className="btn btn-danger"
+                    onClick={stopSimulation}
+                    style={{ flex: "1", minWidth: "200px" }}
+                  >
+                    ⏹️ Stop Simulation
+                  </button>
+                )}
+              </div>
+
+              {/* Simulation Info */}
+              {simulationState.isRunning && simulationState.startTime && (
+                <div style={{
+                  padding: "15px",
+                  background: "#f0f9ff",
+                  borderRadius: "8px",
+                  border: "1px solid #bae6fd"
+                }}>
+                  <div style={{ fontSize: "0.9rem", color: "#0369a1", marginBottom: "5px" }}>
+                    Simulation Started: {simulationState.startTime.toLocaleString()}
+                  </div>
+                  <div style={{ fontSize: "0.9rem", color: "#0369a1" }}>
+                    Duration: {Math.floor((new Date() - simulationState.startTime) / 1000 / 60)} minutes
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Active Strategies */}
+            {simulationState.strategies && simulationState.strategies.length > 0 && (
+              <div style={{ marginBottom: "30px" }}>
+                <h4 style={{ margin: "0 0 15px 0", color: "#1e293b" }}>Active Strategies</h4>
+                <div style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
+                  gap: "15px"
+                }}>
+                  {simulationState.strategies.map((strategy, index) => (
+                    <div key={index} style={{
+                      padding: "15px",
+                      background: "#f8fafc",
+                      borderRadius: "8px",
+                      border: "1px solid #e2e8f0"
+                    }}>
+                      <div style={{ fontWeight: "600", marginBottom: "5px" }}>
+                        {strategy.name || `Strategy ${index + 1}`}
+                      </div>
+                      <div style={{ fontSize: "0.9rem", color: "#64748b" }}>
+                        Status: <span style={{ color: "#10b981" }}>Active</span>
+                      </div>
+                      <div style={{ fontSize: "0.9rem", color: "#64748b" }}>
+                        Trades: {strategy.trades || 0}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Simulation Orders */}
+            {simulationState.simulationOrders && simulationState.simulationOrders.length > 0 && (
+              <div>
+                <h4 style={{ margin: "0 0 15px 0", color: "#1e293b" }}>Simulation Orders</h4>
+                <div className="table-container">
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>Symbol</th>
+                        <th>Side</th>
+                        <th>Qty</th>
+                        <th>Price</th>
+                        <th>Status</th>
+                        <th>Strategy</th>
+                        <th>Time</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {simulationState.simulationOrders.slice(0, 10).map((order, index) => (
+                        <tr key={index}>
+                          <td>{order.symbol}</td>
+                          <td>{order.side === 1 ? 'Buy' : 'Sell'}</td>
+                          <td>{order.qty}</td>
+                          <td>{formatCurrency(order.price)}</td>
+                          <td>
+                            <span 
+                              className="status-badge"
+                              style={{ 
+                                background: getStatusColor(order.status) + '20',
+                                color: getStatusColor(order.status)
+                              }}
+                            >
+                              {order.status}
+                            </span>
+                          </td>
+                          <td>{order.strategy || 'Manual'}</td>
+                          <td>{new Date(order.timestamp).toLocaleTimeString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
