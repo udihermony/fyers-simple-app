@@ -85,14 +85,39 @@ async function getUserAccessToken(userId) {
 const trimSlash = (s) => (s || "").replace(/\/+$/, "");
 const ALLOWED_ORIGINS = [
   trimSlash(FRONTEND_URL),
-  ...FRONTEND_URLS.split(",").map(s => trimSlash(s.trim())).filter(Boolean)
+  ...FRONTEND_URLS.split(",").map(s => trimSlash(s.trim())).filter(Boolean),
+  // Add common development origins
+  "http://localhost:3000",
+  "https://localhost:3000",
+  "http://127.0.0.1:3000",
+  "https://127.0.0.1:3000"
 ].filter(Boolean);
+
+console.log("CORS Configuration:");
+console.log("FRONTEND_URL:", FRONTEND_URL);
+console.log("FRONTEND_URLS:", FRONTEND_URLS);
+console.log("ALLOWED_ORIGINS:", ALLOWED_ORIGINS);
+
 app.use(cors({
   origin: function (origin, callback) {
+    console.log("CORS Request from origin:", origin);
+    
     // Allow same-origin or server-to-server (no Origin header)
-    if (!origin) return callback(null, true);
+    if (!origin) {
+      console.log("No origin header, allowing request");
+      return callback(null, true);
+    }
+    
     const cleanOrigin = trimSlash(origin);
-    if (ALLOWED_ORIGINS.includes(cleanOrigin)) return callback(null, true);
+    console.log("Clean origin:", cleanOrigin);
+    console.log("Checking against allowed origins:", ALLOWED_ORIGINS);
+    
+    if (ALLOWED_ORIGINS.includes(cleanOrigin)) {
+      console.log("Origin allowed:", cleanOrigin);
+      return callback(null, true);
+    }
+    
+    console.log("Origin NOT allowed:", cleanOrigin);
     return callback(new Error("Not allowed by CORS"), false);
   },
   credentials: true
