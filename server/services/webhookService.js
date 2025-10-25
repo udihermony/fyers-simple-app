@@ -21,7 +21,7 @@ class WebhookService {
     const webhookSecret = req.headers['x-webhook-secret'] || req.query.secret;
 
     try {
-      // Validate user token and secret
+      // Validate user token (secret is optional for Chartlink)
       const userSettings = await this.validateWebhookAuth(userToken, webhookSecret);
       if (!userSettings) {
         return res.status(401).json({ error: "Invalid webhook authentication" });
@@ -78,7 +78,7 @@ class WebhookService {
   /**
    * Validate webhook authentication
    * @param {string} userToken - User webhook token
-   * @param {string} webhookSecret - Webhook secret
+   * @param {string} webhookSecret - Webhook secret (optional for Chartlink)
    * @returns {Promise<Object|null>}
    */
   async validateWebhookAuth(userToken, webhookSecret) {
@@ -92,8 +92,8 @@ class WebhookService {
         return null;
       }
 
-      // Verify secret
-      if (userSettings.webhookSecret !== webhookSecret) {
+      // For Chartlink, secret is optional - if provided, verify it
+      if (webhookSecret && userSettings.webhookSecret !== webhookSecret) {
         return null;
       }
 
