@@ -57,6 +57,15 @@ class TradingAPI {
     // Health and stats endpoints
     app.get("/api/trading/health", this.getTradingHealth.bind(this));
     app.get("/api/trading/stats", this.getTradingStats.bind(this));
+    
+    // Debug endpoint
+    app.get("/api/debug/routes", (req, res) => {
+      res.json({ 
+        message: "Trading API routes are working",
+        timestamp: new Date().toISOString(),
+        user: req.user ? { id: req.user.id } : null
+      });
+    });
   }
 
   /**
@@ -413,16 +422,23 @@ class TradingAPI {
 
     try {
       const userId = req.user.id;
-      const settings = await prisma.userSettings.findUnique({
+      let settings = await prisma.userSettings.findUnique({
         where: { userId }
       });
 
+      // If no settings exist, create them
       if (!settings) {
-        return res.status(404).json({ error: "Webhook settings not found" });
+        const webhookService = require("../services/webhookService");
+        const credentials = await webhookService.generateWebhookCredentials(userId);
+        settings = {
+          webhookToken: credentials.webhookToken,
+          webhookSecret: credentials.webhookSecret,
+          defaultMode: 'paper'
+        };
       }
 
       res.json({
-        webhookUrl: `${process.env.APP_BASE_URL || 'http://localhost:8080'}/webhooks/chartlink/${settings.webhookToken}`,
+        webhookUrl: `${process.env.APP_BASE_URL || 'https://fyers-simple-app-production.up.railway.app'}/webhooks/chartlink/${settings.webhookToken}`,
         webhookSecret: settings.webhookSecret.substring(0, 8) + "...", // Masked
         defaultMode: settings.defaultMode
       });
