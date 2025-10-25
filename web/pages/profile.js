@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import Link from "next/link";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL;
 
@@ -11,17 +10,16 @@ if (typeof document !== 'undefined') {
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
     }
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(20px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
   `;
   document.head.appendChild(style);
 }
 
-export default function Dashboard() {
+export default function Profile() {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState(null);
+  const [quotes, setQuotes] = useState(null);
+  const [qLoading, setQLoading] = useState(false);
+  const [symbols, setSymbols] = useState("NSE:SBIN-EQ,NSE:TCS-EQ");
   const [holdings, setHoldings] = useState(null);
   const [hLoading, setHLoading] = useState(false);
   const [funds, setFunds] = useState(null);
@@ -52,6 +50,25 @@ export default function Dashboard() {
   useEffect(() => {
     fetchMe();
   }, []);
+
+  const fetchQuotes = async () => {
+    setQLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/quotes?symbols=${encodeURIComponent(symbols)}`, {
+        credentials: "include"
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setQuotes(data);
+      } else {
+        setQuotes(null);
+      }
+    } catch (e) {
+      setQuotes(null);
+    } finally {
+      setQLoading(false);
+    }
+  };
 
   const fetchHoldings = async () => {
     setHLoading(true);
@@ -98,6 +115,7 @@ export default function Dashboard() {
         credentials: "include"
       });
       setProfile(null);
+      setQuotes(null);
       setHoldings(null);
       setFunds(null);
     } catch (e) {
@@ -179,7 +197,7 @@ export default function Dashboard() {
             marginBottom: "30px",
             lineHeight: "1.6"
           }}>
-            Connect your Fyers account to access your trading dashboard
+            Connect your Fyers account to access your trading data
           </p>
           <a
             href={`${API_BASE}/auth/login`}
@@ -223,7 +241,7 @@ export default function Dashboard() {
       padding: "20px"
     }}>
       <div style={{
-        maxWidth: "1400px",
+        maxWidth: "1200px",
         margin: "0 auto",
         background: "rgba(255, 255, 255, 0.95)",
         borderRadius: "20px",
@@ -233,56 +251,81 @@ export default function Dashboard() {
       }}>
         {/* Header */}
         <div style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: "30px",
-          flexWrap: "wrap",
-          gap: "20px"
+          textAlign: "center",
+          marginBottom: "30px"
         }}>
-          <div>
-            <h1 style={{
-              fontSize: "2.5rem",
-              fontWeight: "700",
-              background: "linear-gradient(135deg, #667eea, #764ba2)",
-              backgroundClip: "text",
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-              marginBottom: "5px"
-            }}>
-              Trading Dashboard
-            </h1>
-            <p style={{
-              color: "#666",
-              fontSize: "1.1rem",
-              margin: "0"
-            }}>
-              Welcome back, {profile.name || "Trader"}
-            </p>
-          </div>
+          <h1 style={{
+            fontSize: "2.5rem",
+            fontWeight: "700",
+            background: "linear-gradient(135deg, #667eea, #764ba2)",
+            backgroundClip: "text",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            marginBottom: "10px"
+          }}>
+            Trading Profile
+          </h1>
+          <p style={{
+            color: "#666",
+            fontSize: "1.1rem"
+          }}>
+            Manage your Fyers account and trading data
+          </p>
+        </div>
+
+        {/* Profile Card */}
+        <div style={{
+          background: "linear-gradient(135deg, #f8fafc, #e2e8f0)",
+          border: "1px solid #e2e8f0",
+          borderRadius: "15px",
+          padding: "25px",
+          marginBottom: "30px",
+          boxShadow: "0 4px 6px rgba(0,0,0,0.05)"
+        }}>
           <div style={{
-            display: "flex",
-            gap: "15px",
+            display: "grid",
+            gridTemplateColumns: "auto 1fr auto",
+            gap: "20px",
             alignItems: "center"
           }}>
-            <Link href="/profile">
-              <a style={{
-                padding: "10px 20px",
-                background: "linear-gradient(135deg, #3b82f6, #1d4ed8)",
-                color: "white",
-                textDecoration: "none",
-                borderRadius: "25px",
+            <div style={{
+              width: "60px",
+              height: "60px",
+              background: "linear-gradient(135deg, #667eea, #764ba2)",
+              borderRadius: "50%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "white",
+              fontSize: "1.5rem",
+              fontWeight: "bold"
+            }}>
+              {profile.name ? profile.name.charAt(0).toUpperCase() : "U"}
+            </div>
+            <div>
+              <h3 style={{
+                margin: "0 0 5px 0",
+                fontSize: "1.3rem",
+                color: "#1e293b"
+              }}>
+                {profile.name || "Fyers User"}
+              </h3>
+              <p style={{
+                margin: "0",
+                color: "#64748b",
+                fontSize: "0.95rem"
+              }}>
+                {profile.email || "No email"}
+              </p>
+              <p style={{
+                margin: "5px 0 0 0",
+                color: "#10b981",
                 fontSize: "0.9rem",
-                fontWeight: "600",
-                boxShadow: "0 4px 6px rgba(59, 130, 246, 0.3)",
-                transition: "transform 0.2s ease"
-              }}
-              onMouseOver={(e) => e.target.style.transform = "translateY(-2px)"}
-              onMouseOut={(e) => e.target.style.transform = "translateY(0)"}
-              >
-                Profile
-              </a>
-            </Link>
+                fontWeight: "600"
+              }}>
+                ✓ Connected to Fyers
+              </p>
+            </div>
             <button
               onClick={logout}
               style={{
@@ -302,170 +345,115 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Quick Stats */}
-        <div style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
-          gap: "20px",
-          marginBottom: "30px"
-        }}>
-          <div style={{
-            background: "linear-gradient(135deg, #10b981, #059669)",
-            borderRadius: "15px",
-            padding: "25px",
-            color: "white",
-            boxShadow: "0 8px 16px rgba(16, 185, 129, 0.3)",
-            animation: "fadeIn 0.6s ease-out"
-          }}>
-            <div style={{
-              display: "flex",
-              alignItems: "center",
-              marginBottom: "15px"
-            }}>
-              <div style={{
-                width: "50px",
-                height: "50px",
-                background: "rgba(255,255,255,0.2)",
-                borderRadius: "12px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                marginRight: "15px"
-              }}>
-                <span style={{ fontSize: "1.5rem" }}>💼</span>
-              </div>
-              <div>
-                <h3 style={{ margin: "0", fontSize: "1.1rem", opacity: "0.9" }}>Portfolio Value</h3>
-                <p style={{ margin: "0", fontSize: "1.8rem", fontWeight: "700" }}>
-                  {holdings ? fmt(holdings.total_value || 0) : "Loading..."}
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={fetchHoldings}
-              disabled={hLoading}
-              style={{
-                width: "100%",
-                padding: "10px",
-                background: "rgba(255,255,255,0.2)",
-                color: "white",
-                border: "none",
-                borderRadius: "8px",
-                cursor: hLoading ? "not-allowed" : "pointer",
-                fontSize: "0.9rem",
-                fontWeight: "600"
-              }}
-            >
-              {hLoading ? "Refreshing..." : "Refresh Holdings"}
-            </button>
-          </div>
-
-          <div style={{
-            background: "linear-gradient(135deg, #f59e0b, #d97706)",
-            borderRadius: "15px",
-            padding: "25px",
-            color: "white",
-            boxShadow: "0 8px 16px rgba(245, 158, 11, 0.3)",
-            animation: "fadeIn 0.6s ease-out 0.1s both"
-          }}>
-            <div style={{
-              display: "flex",
-              alignItems: "center",
-              marginBottom: "15px"
-            }}>
-              <div style={{
-                width: "50px",
-                height: "50px",
-                background: "rgba(255,255,255,0.2)",
-                borderRadius: "12px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                marginRight: "15px"
-              }}>
-                <span style={{ fontSize: "1.5rem" }}>💰</span>
-              </div>
-              <div>
-                <h3 style={{ margin: "0", fontSize: "1.1rem", opacity: "0.9" }}>Available Funds</h3>
-                <p style={{ margin: "0", fontSize: "1.8rem", fontWeight: "700" }}>
-                  {funds ? fmt((funds.capital || 0) + (funds.commodity || 0)) : "Loading..."}
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={fetchFunds}
-              disabled={fLoading}
-              style={{
-                width: "100%",
-                padding: "10px",
-                background: "rgba(255,255,255,0.2)",
-                color: "white",
-                border: "none",
-                borderRadius: "8px",
-                cursor: fLoading ? "not-allowed" : "pointer",
-                fontSize: "0.9rem",
-                fontWeight: "600"
-              }}
-            >
-              {fLoading ? "Refreshing..." : "Refresh Funds"}
-            </button>
-          </div>
-
-          <div style={{
-            background: "linear-gradient(135deg, #8b5cf6, #7c3aed)",
-            borderRadius: "15px",
-            padding: "25px",
-            color: "white",
-            boxShadow: "0 8px 16px rgba(139, 92, 246, 0.3)",
-            animation: "fadeIn 0.6s ease-out 0.2s both"
-          }}>
-            <div style={{
-              display: "flex",
-              alignItems: "center",
-              marginBottom: "15px"
-            }}>
-              <div style={{
-                width: "50px",
-                height: "50px",
-                background: "rgba(255,255,255,0.2)",
-                borderRadius: "12px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                marginRight: "15px"
-              }}>
-                <span style={{ fontSize: "1.5rem" }}>📈</span>
-              </div>
-              <div>
-                <h3 style={{ margin: "0", fontSize: "1.1rem", opacity: "0.9" }}>P&L Today</h3>
-                <p style={{ 
-                  margin: "0", 
-                  fontSize: "1.8rem", 
-                  fontWeight: "700",
-                  color: holdings ? color(holdings.total_pnl || 0) : "white"
-                }}>
-                  {holdings ? fmt(holdings.total_pnl || 0) : "Loading..."}
-                </p>
-              </div>
-            </div>
-            <div style={{
-              fontSize: "0.9rem",
-              opacity: "0.8"
-            }}>
-              {holdings && holdings.holdings ? `${holdings.holdings.length} positions` : "No data"}
-            </div>
-          </div>
-        </div>
-
-        {/* Holdings Overview */}
+        {/* Quotes Card */}
         <div style={{
           background: "linear-gradient(135deg, #f8fafc, #e2e8f0)",
           border: "1px solid #e2e8f0",
           borderRadius: "15px",
           padding: "25px",
           marginBottom: "30px",
-          boxShadow: "0 4px 6px rgba(0,0,0,0.05)",
-          animation: "fadeIn 0.6s ease-out 0.3s both"
+          boxShadow: "0 4px 6px rgba(0,0,0,0.05)"
+        }}>
+          <div style={{
+            display: "flex",
+            alignItems: "center",
+            marginBottom: "20px"
+          }}>
+            <div style={{
+              width: "40px",
+              height: "40px",
+              background: "linear-gradient(135deg, #3b82f6, #1d4ed8)",
+              borderRadius: "10px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              marginRight: "15px"
+            }}>
+              <span style={{ color: "white", fontSize: "1.2rem" }}>📈</span>
+            </div>
+            <h3 style={{
+              margin: "0",
+              fontSize: "1.3rem",
+              color: "#1e293b"
+            }}>
+              Market Quotes
+            </h3>
+          </div>
+          
+          <div style={{
+            display: "flex",
+            gap: "15px",
+            marginBottom: "20px",
+            flexWrap: "wrap"
+          }}>
+            <input
+              type="text"
+              value={symbols}
+              onChange={(e) => setSymbols(e.target.value)}
+              placeholder="Enter symbols (comma-separated)"
+              style={{
+                flex: "1",
+                minWidth: "300px",
+                padding: "12px 15px",
+                border: "2px solid #e2e8f0",
+                borderRadius: "10px",
+                fontSize: "0.95rem",
+                outline: "none",
+                transition: "border-color 0.2s ease"
+              }}
+              onFocus={(e) => e.target.style.borderColor = "#667eea"}
+              onBlur={(e) => e.target.style.borderColor = "#e2e8f0"}
+            />
+            <button
+              onClick={fetchQuotes}
+              disabled={qLoading}
+              style={{
+                padding: "12px 25px",
+                background: qLoading ? "#94a3b8" : "linear-gradient(135deg, #667eea, #764ba2)",
+                color: "white",
+                border: "none",
+                borderRadius: "10px",
+                cursor: qLoading ? "not-allowed" : "pointer",
+                fontSize: "0.95rem",
+                fontWeight: "600",
+                boxShadow: "0 4px 6px rgba(102, 126, 234, 0.3)",
+                minWidth: "120px"
+              }}
+            >
+              {qLoading ? "Loading..." : "Get Quotes"}
+            </button>
+          </div>
+
+          {quotes && (
+            <div style={{
+              background: "white",
+              border: "1px solid #e2e8f0",
+              borderRadius: "10px",
+              padding: "20px",
+              maxHeight: "400px",
+              overflowY: "auto"
+            }}>
+              <pre style={{
+                margin: "0",
+                fontSize: "0.85rem",
+                color: "#374151",
+                whiteSpace: "pre-wrap",
+                fontFamily: "Monaco, 'Courier New', monospace"
+              }}>
+                {JSON.stringify(quotes, null, 2)}
+              </pre>
+            </div>
+          )}
+        </div>
+
+        {/* Holdings Card */}
+        <div style={{
+          background: "linear-gradient(135deg, #f8fafc, #e2e8f0)",
+          border: "1px solid #e2e8f0",
+          borderRadius: "15px",
+          padding: "25px",
+          marginBottom: "30px",
+          boxShadow: "0 4px 6px rgba(0,0,0,0.05)"
         }}>
           <div style={{
             display: "flex",
@@ -494,7 +482,7 @@ export default function Dashboard() {
                 fontSize: "1.3rem",
                 color: "#1e293b"
               }}>
-                Portfolio Holdings
+                Holdings
               </h3>
             </div>
             <button
@@ -529,114 +517,95 @@ export default function Dashboard() {
                 }}>
                   Error: {holdings.error}
                 </div>
-              ) : holdings.holdings && holdings.holdings.length > 0 ? (
-                <div style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
-                  gap: "15px"
-                }}>
-                  {holdings.holdings.slice(0, 6).map((h, i) => (
-                    <div key={i} style={{
+              ) : (
+                <div>
+                  <div style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                    gap: "15px",
+                    marginBottom: "20px"
+                  }}>
+                    <div style={{
                       background: "white",
-                      border: "1px solid #e2e8f0",
-                      borderRadius: "10px",
                       padding: "15px",
-                      boxShadow: "0 2px 4px rgba(0,0,0,0.05)"
+                      borderRadius: "10px",
+                      border: "1px solid #e2e8f0"
                     }}>
-                      <div style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "flex-start",
-                        marginBottom: "10px"
-                      }}>
-                        <div>
-                          <div style={{ 
-                            fontWeight: "600", 
-                            color: "#1e293b",
-                            fontSize: "1.1rem"
-                          }}>
-                            {h.symbol || "N/A"}
-                          </div>
-                          <div style={{ 
-                            fontSize: "0.85rem", 
-                            color: "#64748b",
-                            marginTop: "2px"
-                          }}>
-                            Qty: {h.qty || 0}
-                          </div>
-                        </div>
-                        <div style={{ textAlign: "right" }}>
-                          <div style={{ 
-                            fontWeight: "600", 
-                            color: "#1e293b",
-                            fontSize: "1rem"
-                          }}>
-                            {fmt(h.market_value || 0)}
-                          </div>
-                          <div style={{ 
-                            fontSize: "0.85rem", 
-                            color: color(h.pnl || 0),
-                            fontWeight: "500"
-                          }}>
-                            {fmt(h.pnl || 0)}
-                          </div>
-                        </div>
-                      </div>
-                      <div style={{
-                        fontSize: "0.8rem",
-                        color: "#64748b",
-                        borderTop: "1px solid #f1f5f9",
-                        paddingTop: "8px"
-                      }}>
-                        Avg Price: {fmt(h.avg_price || 0)}
+                      <div style={{ color: "#64748b", fontSize: "0.85rem", marginBottom: "5px" }}>Total Value</div>
+                      <div style={{ fontSize: "1.2rem", fontWeight: "600", color: "#1e293b" }}>
+                        {fmt(holdings.total_value || 0)}
                       </div>
                     </div>
-                  ))}
-                  {holdings.holdings.length > 6 && (
+                    <div style={{
+                      background: "white",
+                      padding: "15px",
+                      borderRadius: "10px",
+                      border: "1px solid #e2e8f0"
+                    }}>
+                      <div style={{ color: "#64748b", fontSize: "0.85rem", marginBottom: "5px" }}>P&L</div>
+                      <div style={{ 
+                        fontSize: "1.2rem", 
+                        fontWeight: "600", 
+                        color: color(holdings.total_pnl || 0) 
+                      }}>
+                        {fmt(holdings.total_pnl || 0)}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {holdings.holdings && holdings.holdings.length > 0 && (
                     <div style={{
                       background: "white",
                       border: "1px solid #e2e8f0",
                       borderRadius: "10px",
-                      padding: "15px",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      color: "#64748b",
-                      fontSize: "0.9rem"
+                      padding: "20px",
+                      maxHeight: "400px",
+                      overflowY: "auto"
                     }}>
-                      +{holdings.holdings.length - 6} more positions
+                      <h4 style={{ margin: "0 0 15px 0", color: "#1e293b" }}>Your Holdings</h4>
+                      {holdings.holdings.map((h, i) => (
+                        <div key={i} style={{
+                          padding: "12px",
+                          borderBottom: i < holdings.holdings.length - 1 ? "1px solid #f1f5f9" : "none",
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center"
+                        }}>
+                          <div>
+                            <div style={{ fontWeight: "600", color: "#1e293b" }}>{h.symbol || "N/A"}</div>
+                            <div style={{ fontSize: "0.85rem", color: "#64748b" }}>
+                              Qty: {h.qty || 0} | Avg: {fmt(h.avg_price || 0)}
+                            </div>
+                          </div>
+                          <div style={{ textAlign: "right" }}>
+                            <div style={{ fontWeight: "600", color: "#1e293b" }}>
+                              {fmt(h.market_value || 0)}
+                            </div>
+                            <div style={{ 
+                              fontSize: "0.85rem", 
+                              color: color(h.pnl || 0) 
+                            }}>
+                              {fmt(h.pnl || 0)}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   )}
-                </div>
-              ) : (
-                <div style={{
-                  background: "white",
-                  border: "1px solid #e2e8f0",
-                  borderRadius: "10px",
-                  padding: "40px",
-                  textAlign: "center",
-                  color: "#64748b"
-                }}>
-                  <div style={{ fontSize: "2rem", marginBottom: "10px" }}>📊</div>
-                  <p style={{ margin: "0", fontSize: "1rem" }}>No holdings found</p>
-                  <p style={{ margin: "5px 0 0 0", fontSize: "0.9rem" }}>
-                    Start trading to see your positions here
-                  </p>
                 </div>
               )}
             </div>
           )}
         </div>
 
-        {/* Funds Overview */}
+        {/* Funds Card */}
         <div style={{
           background: "linear-gradient(135deg, #f8fafc, #e2e8f0)",
           border: "1px solid #e2e8f0",
           borderRadius: "15px",
           padding: "25px",
           marginBottom: "30px",
-          boxShadow: "0 4px 6px rgba(0,0,0,0.05)",
-          animation: "fadeIn 0.6s ease-out 0.4s both"
+          boxShadow: "0 4px 6px rgba(0,0,0,0.05)"
         }}>
           <div style={{
             display: "flex",
@@ -665,7 +634,7 @@ export default function Dashboard() {
                 fontSize: "1.3rem",
                 color: "#1e293b"
               }}>
-                Available Funds
+                Funds
               </h3>
             </div>
             <button
@@ -701,47 +670,73 @@ export default function Dashboard() {
                   Error: {funds.error}
                 </div>
               ) : (
-                <div style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-                  gap: "15px"
-                }}>
+                <div>
                   <div style={{
-                    background: "white",
-                    padding: "20px",
-                    borderRadius: "10px",
-                    border: "1px solid #e2e8f0",
-                    textAlign: "center"
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                    gap: "15px",
+                    marginBottom: "20px"
                   }}>
-                    <div style={{ color: "#64748b", fontSize: "0.85rem", marginBottom: "8px" }}>Capital Market</div>
-                    <div style={{ fontSize: "1.5rem", fontWeight: "600", color: "#1e293b" }}>
-                      {fmt(funds.capital || 0)}
+                    <div style={{
+                      background: "white",
+                      padding: "15px",
+                      borderRadius: "10px",
+                      border: "1px solid #e2e8f0"
+                    }}>
+                      <div style={{ color: "#64748b", fontSize: "0.85rem", marginBottom: "5px" }}>Capital</div>
+                      <div style={{ fontSize: "1.2rem", fontWeight: "600", color: "#1e293b" }}>
+                        {fmt(funds.capital || 0)}
+                      </div>
+                    </div>
+                    <div style={{
+                      background: "white",
+                      padding: "15px",
+                      borderRadius: "10px",
+                      border: "1px solid #e2e8f0"
+                    }}>
+                      <div style={{ color: "#64748b", fontSize: "0.85rem", marginBottom: "5px" }}>Commodity</div>
+                      <div style={{ fontSize: "1.2rem", fontWeight: "600", color: "#1e293b" }}>
+                        {fmt(funds.commodity || 0)}
+                      </div>
                     </div>
                   </div>
-                  <div style={{
-                    background: "white",
-                    padding: "20px",
-                    borderRadius: "10px",
-                    border: "1px solid #e2e8f0",
-                    textAlign: "center"
-                  }}>
-                    <div style={{ color: "#64748b", fontSize: "0.85rem", marginBottom: "8px" }}>Commodity Market</div>
-                    <div style={{ fontSize: "1.5rem", fontWeight: "600", color: "#1e293b" }}>
-                      {fmt(funds.commodity || 0)}
+                  
+                  {funds.fund_limit && funds.fund_limit.length > 0 && (
+                    <div style={{
+                      background: "white",
+                      border: "1px solid #e2e8f0",
+                      borderRadius: "10px",
+                      padding: "20px",
+                      maxHeight: "400px",
+                      overflowY: "auto"
+                    }}>
+                      <h4 style={{ margin: "0 0 15px 0", color: "#1e293b" }}>Fund Details</h4>
+                      {funds.fund_limit.map((f, i) => (
+                        <div key={i} style={{
+                          padding: "12px",
+                          borderBottom: i < funds.fund_limit.length - 1 ? "1px solid #f1f5f9" : "none",
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center"
+                        }}>
+                          <div>
+                            <div style={{ fontWeight: "600", color: "#1e293b" }}>{f.symbol || "N/A"}</div>
+                            <div style={{ fontSize: "0.85rem", color: "#64748b" }}>
+                              {f.product || "N/A"}
+                            </div>
+                          </div>
+                          <div style={{ textAlign: "right" }}>
+                            <div style={{ fontWeight: "600", color: "#1e293b" }}>
+                              {fmt(f.limit || 0)}
+                            </div>
+                            <div style={{ fontSize: "0.85rem", color: "#64748b" }}>
+                              Used: {fmt(f.used || 0)}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  </div>
-                  <div style={{
-                    background: "white",
-                    padding: "20px",
-                    borderRadius: "10px",
-                    border: "1px solid #e2e8f0",
-                    textAlign: "center"
-                  }}>
-                    <div style={{ color: "#64748b", fontSize: "0.85rem", marginBottom: "8px" }}>Total Available</div>
-                    <div style={{ fontSize: "1.5rem", fontWeight: "600", color: "#10b981" }}>
-                      {fmt((funds.capital || 0) + (funds.commodity || 0))}
-                    </div>
-                  </div>
+                  )}
                 </div>
               )}
             </div>
