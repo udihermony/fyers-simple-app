@@ -154,6 +154,8 @@ class PaperTradingEngine {
     }
 
     try {
+      console.log(`Processing order ${orderId}: ${order.symbol}, type: ${order.type}, side: ${order.side}`);
+      
       const fillPrice = await marketData.simulateFillPrice(
         order.symbol,
         order.side,
@@ -163,11 +165,16 @@ class PaperTradingEngine {
         accessToken
       );
 
+      console.log(`Fill price for order ${orderId}: ${fillPrice}`);
+
       if (fillPrice && fillPrice > 0) {
         await this.fillOrder(orderId, fillPrice, order.qty);
       } else if (order.type === 2) { // Market order should always fill
         // If market order can't fill, reject it
-        await this.rejectOrder(orderId, "Market order could not be filled - insufficient liquidity");
+        await this.rejectOrder(orderId, "Market order could not be filled - insufficient liquidity or market data unavailable");
+      } else {
+        // For limit orders, it's normal to not fill immediately
+        console.log(`Order ${orderId} waiting for market conditions`);
       }
     } catch (error) {
       console.error(`Error processing order ${orderId}:`, error);

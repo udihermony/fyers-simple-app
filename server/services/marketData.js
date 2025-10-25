@@ -166,11 +166,21 @@ class MarketDataService {
    */
   async simulateFillPrice(symbol, side, orderType, limitPrice, stopPrice, accessToken) {
     try {
+      console.log(`Simulating fill for ${symbol}, side: ${side}, type: ${orderType}`);
+      
       const ltp = await this.getLTP(symbol, accessToken);
-      if (!ltp) return null;
+      console.log(`LTP for ${symbol}: ${ltp}`);
+      if (!ltp) {
+        console.log(`No LTP available for ${symbol}`);
+        return null;
+      }
 
       const bidAsk = await this.getBidAsk(symbol, accessToken);
-      if (!bidAsk) return null;
+      console.log(`Bid-Ask for ${symbol}:`, bidAsk);
+      if (!bidAsk) {
+        console.log(`No bid-ask data available for ${symbol}`);
+        return null;
+      }
 
       // Add slippage (configurable, default 0.1%)
       const slippageBps = parseInt(process.env.PAPER_SLIPPAGE_BPS || "10", 10);
