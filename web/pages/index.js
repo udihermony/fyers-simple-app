@@ -53,6 +53,14 @@ export default function Dashboard() {
     fetchMe();
   }, []);
 
+  // Auto-fetch holdings and funds when user is authenticated
+  useEffect(() => {
+    if (profile) {
+      fetchHoldings();
+      fetchFunds();
+    }
+  }, [profile]);
+
   const fetchHoldings = async () => {
     setHLoading(true);
     try {

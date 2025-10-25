@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import Link from "next/link";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL;
 
@@ -251,26 +252,73 @@ export default function Profile() {
       }}>
         {/* Header */}
         <div style={{
-          textAlign: "center",
-          marginBottom: "30px"
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: "30px",
+          flexWrap: "wrap",
+          gap: "20px"
         }}>
-          <h1 style={{
-            fontSize: "2.5rem",
-            fontWeight: "700",
-            background: "linear-gradient(135deg, #667eea, #764ba2)",
-            backgroundClip: "text",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-            marginBottom: "10px"
+          <div style={{ textAlign: "left" }}>
+            <h1 style={{
+              fontSize: "2.5rem",
+              fontWeight: "700",
+              background: "linear-gradient(135deg, #667eea, #764ba2)",
+              backgroundClip: "text",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+              marginBottom: "5px"
+            }}>
+              Trading Profile
+            </h1>
+            <p style={{
+              color: "#666",
+              fontSize: "1.1rem",
+              margin: "0"
+            }}>
+              Manage your Fyers account and trading data
+            </p>
+          </div>
+          <div style={{
+            display: "flex",
+            gap: "15px",
+            alignItems: "center"
           }}>
-            Trading Profile
-          </h1>
-          <p style={{
-            color: "#666",
-            fontSize: "1.1rem"
-          }}>
-            Manage your Fyers account and trading data
-          </p>
+            <Link href="/">
+              <a style={{
+                padding: "10px 20px",
+                background: "linear-gradient(135deg, #3b82f6, #1d4ed8)",
+                color: "white",
+                textDecoration: "none",
+                borderRadius: "25px",
+                fontSize: "0.9rem",
+                fontWeight: "600",
+                boxShadow: "0 4px 6px rgba(59, 130, 246, 0.3)",
+                transition: "transform 0.2s ease"
+              }}
+              onMouseOver={(e) => e.target.style.transform = "translateY(-2px)"}
+              onMouseOut={(e) => e.target.style.transform = "translateY(0)"}
+              >
+                Dashboard
+              </a>
+            </Link>
+            <button
+              onClick={logout}
+              style={{
+                padding: "10px 20px",
+                background: "linear-gradient(135deg, #ef4444, #dc2626)",
+                color: "white",
+                border: "none",
+                borderRadius: "25px",
+                cursor: "pointer",
+                fontSize: "0.9rem",
+                fontWeight: "600",
+                boxShadow: "0 4px 6px rgba(239, 68, 68, 0.3)"
+              }}
+            >
+              Logout
+            </button>
+          </div>
         </div>
 
         {/* Profile Card */}
@@ -283,10 +331,9 @@ export default function Profile() {
           boxShadow: "0 4px 6px rgba(0,0,0,0.05)"
         }}>
           <div style={{
-            display: "grid",
-            gridTemplateColumns: "auto 1fr auto",
-            gap: "20px",
-            alignItems: "center"
+            display: "flex",
+            alignItems: "center",
+            gap: "20px"
           }}>
             <div style={{
               width: "60px",
@@ -326,22 +373,6 @@ export default function Profile() {
                 ✓ Connected to Fyers
               </p>
             </div>
-            <button
-              onClick={logout}
-              style={{
-                padding: "10px 20px",
-                background: "linear-gradient(135deg, #ef4444, #dc2626)",
-                color: "white",
-                border: "none",
-                borderRadius: "25px",
-                cursor: "pointer",
-                fontSize: "0.9rem",
-                fontWeight: "600",
-                boxShadow: "0 4px 6px rgba(239, 68, 68, 0.3)"
-              }}
-            >
-              Logout
-            </button>
           </div>
         </div>
 
