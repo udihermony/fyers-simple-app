@@ -139,6 +139,8 @@ if (typeof document !== 'undefined') {
       display: flex;
       border-bottom: 2px solid #e5e7eb;
       margin-bottom: 20px;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
     }
     .tab {
       padding: 10px 20px;
@@ -146,10 +148,27 @@ if (typeof document !== 'undefined') {
       border-bottom: 2px solid transparent;
       font-weight: 600;
       color: #6b7280;
+      white-space: nowrap;
+      flex-shrink: 0;
     }
     .tab.active {
       color: #3b82f6;
       border-bottom-color: #3b82f6;
+    }
+    
+    /* Mobile responsive tabs */
+    @media (max-width: 768px) {
+      .tab {
+        padding: 8px 12px;
+        font-size: 14px;
+      }
+    }
+    
+    @media (max-width: 480px) {
+      .tab {
+        padding: 6px 8px;
+        font-size: 12px;
+      }
     }
   `;
   document.head.appendChild(style);
