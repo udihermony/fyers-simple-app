@@ -22,6 +22,23 @@ if (typeof document !== 'undefined') {
       box-shadow: 0 4px 6px rgba(0,0,0,0.05);
       margin-bottom: 20px;
     }
+    
+    /* Mobile responsive cards */
+    @media (max-width: 768px) {
+      .trading-card {
+        padding: 15px;
+        border-radius: 12px;
+        margin-bottom: 15px;
+      }
+    }
+    
+    @media (max-width: 480px) {
+      .trading-card {
+        padding: 12px;
+        border-radius: 10px;
+        margin-bottom: 12px;
+      }
+    }
     .order-form {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -150,24 +167,107 @@ if (typeof document !== 'undefined') {
       color: #6b7280;
       white-space: nowrap;
       flex-shrink: 0;
+      transition: all 0.2s ease;
     }
     .tab.active {
       color: #3b82f6;
       border-bottom-color: #3b82f6;
+      background: rgba(59, 130, 246, 0.05);
+    }
+    .tab:hover {
+      color: #3b82f6;
+      background: rgba(59, 130, 246, 0.05);
     }
     
-    /* Mobile responsive tabs */
+    /* Mobile responsive tabs - Grid layout for medium screens */
     @media (max-width: 768px) {
+      .tabs {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 2px;
+        border-bottom: none;
+        background: #f8fafc;
+        border-radius: 8px;
+        padding: 4px;
+        overflow-x: visible;
+      }
       .tab {
-        padding: 8px 12px;
-        font-size: 14px;
+        padding: 12px 8px;
+        font-size: 13px;
+        text-align: center;
+        border-radius: 6px;
+        border-bottom: none;
+        background: white;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+      }
+      .tab.active {
+        background: #3b82f6;
+        color: white;
+        box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+      }
+      .tab:hover {
+        background: #f1f5f9;
+        color: #3b82f6;
+      }
+      .tab.active:hover {
+        background: #2563eb;
+        color: white;
+      }
+    }
+    
+    /* Very small screens - Dropdown approach */
+    @media (max-width: 480px) {
+      .tabs {
+        display: none;
+      }
+      .mobile-tab-selector {
+        display: block;
+        margin-bottom: 20px;
+      }
+      .mobile-tab-selector select {
+        width: 100%;
+        padding: 12px 16px;
+        border: 2px solid #e5e7eb;
+        border-radius: 8px;
+        font-size: 16px;
+        font-weight: 600;
+        background: white;
+        color: #374151;
+        cursor: pointer;
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+        background-position: right 12px center;
+        background-repeat: no-repeat;
+        background-size: 16px;
+        padding-right: 40px;
+      }
+      .mobile-tab-selector select:focus {
+        outline: none;
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+      }
+    }
+    
+    /* Hide mobile selector on larger screens */
+    @media (min-width: 481px) {
+      .mobile-tab-selector {
+        display: none;
+      }
+    }
+    
+    /* Mobile responsive main container */
+    @media (max-width: 768px) {
+      .main-container {
+        padding: 20px !important;
+        border-radius: 15px !important;
       }
     }
     
     @media (max-width: 480px) {
-      .tab {
-        padding: 6px 8px;
-        font-size: 12px;
+      .main-container {
+        padding: 15px !important;
+        border-radius: 12px !important;
+        margin: 10px !important;
       }
     }
   `;
@@ -496,7 +596,7 @@ export default function TradingDashboard() {
       fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
       padding: "20px"
     }}>
-      <div style={{
+      <div className="main-container" style={{
         maxWidth: "1400px",
         margin: "0 auto",
         background: "rgba(255, 255, 255, 0.95)",
@@ -617,37 +717,51 @@ export default function TradingDashboard() {
           </div>
         )}
 
-        {/* Tabs */}
+        {/* Mobile Tab Selector (for very small screens) */}
+        <div className="mobile-tab-selector">
+          <select 
+            value={activeTab} 
+            onChange={(e) => setActiveTab(e.target.value)}
+          >
+            <option value="orders">📊 Orders</option>
+            <option value="positions">💼 Positions</option>
+            <option value="chartlink">📡 Chartlink Alerts</option>
+            <option value="place-order">📝 Place Order</option>
+            <option value="settings">⚙️ Settings</option>
+          </select>
+        </div>
+
+        {/* Desktop/Tablet Tabs */}
         <div className="tabs">
           <div 
             className={`tab ${activeTab === 'orders' ? 'active' : ''}`}
             onClick={() => setActiveTab('orders')}
           >
-            Orders
+            📊 Orders
           </div>
           <div 
             className={`tab ${activeTab === 'positions' ? 'active' : ''}`}
             onClick={() => setActiveTab('positions')}
           >
-            Positions
+            💼 Positions
           </div>
           <div 
             className={`tab ${activeTab === 'chartlink' ? 'active' : ''}`}
             onClick={() => setActiveTab('chartlink')}
           >
-            Chartlink Alerts
+            📡 Chartlink Alerts
           </div>
           <div 
             className={`tab ${activeTab === 'place-order' ? 'active' : ''}`}
             onClick={() => setActiveTab('place-order')}
           >
-            Place Order
+            📝 Place Order
           </div>
           <div 
             className={`tab ${activeTab === 'settings' ? 'active' : ''}`}
             onClick={() => setActiveTab('settings')}
           >
-            Settings
+            ⚙️ Settings
           </div>
         </div>
 
