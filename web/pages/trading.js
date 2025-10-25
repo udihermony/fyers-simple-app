@@ -129,6 +129,7 @@ export default function TradingDashboard() {
   const [positions, setPositions] = useState([]);
   const [portfolio, setPortfolio] = useState(null);
   const [webhookSettings, setWebhookSettings] = useState(null);
+  const [alerts, setAlerts] = useState([]);
   const [orderForm, setOrderForm] = useState({
     symbol: 'NSE:SBIN-EQ',
     side: 1,
@@ -218,6 +219,20 @@ export default function TradingDashboard() {
     }
   };
 
+  const fetchAlerts = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/alerts?limit=50`, {
+        credentials: "include"
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAlerts(data.alerts || []);
+      }
+    } catch (e) {
+      console.error("Error fetching alerts:", e);
+    }
+  };
+
   useEffect(() => {
     fetchProfile();
   }, []);
@@ -228,18 +243,30 @@ export default function TradingDashboard() {
       fetchPositions();
       fetchPortfolio();
       fetchWebhookSettings();
+      fetchAlerts();
     }
   }, [profile]);
 
   const placeOrder = async () => {
     try {
+      // Clean up the order form data - convert empty strings to null for numeric fields
+      const cleanedOrderForm = {
+        ...orderForm,
+        limitPrice: orderForm.limitPrice && orderForm.limitPrice !== '' ? parseFloat(orderForm.limitPrice) : null,
+        stopPrice: orderForm.stopPrice && orderForm.stopPrice !== '' ? parseFloat(orderForm.stopPrice) : null,
+        stopLoss: orderForm.stopLoss && orderForm.stopLoss !== '' ? parseFloat(orderForm.stopLoss) : null,
+        takeProfit: orderForm.takeProfit && orderForm.takeProfit !== '' ? parseFloat(orderForm.takeProfit) : null,
+        orderTag: orderForm.orderTag && orderForm.orderTag !== '' ? orderForm.orderTag : null,
+        qty: parseInt(orderForm.qty)
+      };
+
       const res = await fetch(`${API_BASE}/api/orders`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         credentials: "include",
-        body: JSON.stringify(orderForm)
+        body: JSON.stringify(cleanedOrderForm)
       });
 
       if (res.ok) {
@@ -552,6 +579,12 @@ export default function TradingDashboard() {
             Positions
           </div>
           <div 
+            className={`tab ${activeTab === 'chartlink' ? 'active' : ''}`}
+            onClick={() => setActiveTab('chartlink')}
+          >
+            Chartlink Alerts
+          </div>
+          <div 
             className={`tab ${activeTab === 'place-order' ? 'active' : ''}`}
             onClick={() => setActiveTab('place-order')}
           >
@@ -646,6 +679,94 @@ export default function TradingDashboard() {
               }}>
                 <div style={{ fontSize: "2rem", marginBottom: "10px" }}>📊</div>
                 <p>No orders found</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Chartlink Alerts Tab */}
+        {activeTab === 'chartlink' && (
+          <div className="trading-card">
+            <div style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: "20px"
+            }}>
+              <h3 style={{ margin: "0", color: "#1e293b" }}>Chartlink Alerts</h3>
+              <button 
+                className="btn btn-primary"
+                onClick={fetchAlerts}
+              >
+                Refresh
+              </button>
+            </div>
+            
+            {alerts.length > 0 ? (
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Strategy</th>
+                    <th>Symbol</th>
+                    <th>Side</th>
+                    <th>Type</th>
+                    <th>Qty</th>
+                    <th>Price</th>
+                    <th>Status</th>
+                    <th>Created</th>
+                    <th>Orders</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {alerts.map((alert) => (
+                    <tr key={alert.id}>
+                      <td>{alert.strategy?.name || 'Unknown'}</td>
+                      <td>{alert.rawPayload?.symbol || '-'}</td>
+                      <td>{alert.rawPayload?.side || '-'}</td>
+                      <td>{alert.rawPayload?.order_type || '-'}</td>
+                      <td>{alert.rawPayload?.quantity || '-'}</td>
+                      <td>{alert.rawPayload?.limit_price || alert.rawPayload?.price || '-'}</td>
+                      <td>
+                        <span 
+                          className="status-badge"
+                          style={{ 
+                            background: getStatusColor(alert.status) + '20',
+                            color: getStatusColor(alert.status)
+                          }}
+                        >
+                          {alert.status}
+                        </span>
+                      </td>
+                      <td>{new Date(alert.createdAt).toLocaleString()}</td>
+                      <td>
+                        {alert.orders && alert.orders.length > 0 ? (
+                          <span style={{ fontSize: "0.8rem", color: "#10b981" }}>
+                            {alert.orders.length} order(s)
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: "0.8rem", color: "#64748b" }}>
+                            No orders
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div style={{
+                textAlign: "center",
+                padding: "40px",
+                color: "#64748b"
+              }}>
+                <div style={{ fontSize: "2rem", marginBottom: "10px" }}>📡</div>
+                <p>No Chartlink alerts received yet</p>
+                <div style={{ fontSize: "0.9rem", marginTop: "10px", color: "#64748b" }}>
+                  <p>Webhook URL: <code style={{ background: "#f1f5f9", padding: "2px 6px", borderRadius: "4px" }}>
+                    {webhookSettings?.webhookUrl || 'Loading...'}
+                  </code></p>
+                  <p>Configure this URL in Chartlink to start receiving alerts</p>
+                </div>
               </div>
             )}
           </div>
@@ -895,6 +1016,7 @@ export default function TradingDashboard() {
                       value={webhookSettings.webhookSecret}
                       readOnly
                       style={{ flex: 1 }}
+                      placeholder="Not required for Chartlink"
                     />
                     <button 
                       className="btn btn-primary"
@@ -902,6 +1024,9 @@ export default function TradingDashboard() {
                     >
                       Copy
                     </button>
+                  </div>
+                  <div style={{ fontSize: "0.8rem", color: "#64748b", marginTop: "5px" }}>
+                    {webhookSettings.description || "Chartlink only requires the webhook URL above. The secret is optional."}
                   </div>
                 </div>
                 
