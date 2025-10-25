@@ -57,17 +57,17 @@ class PaperTradingEngine {
           productType: orderData.productType,
           symbol: orderData.symbol,
           qty: orderData.qty,
-          limitPrice: orderData.limitPrice,
-          stopPrice: orderData.stopPrice,
-          stopLoss: orderData.stopLoss,
-          takeProfit: orderData.takeProfit,
-          orderTag: orderData.orderTag,
+          limitPrice: orderData.limitPrice || null,
+          stopPrice: orderData.stopPrice || null,
+          stopLoss: orderData.stopLoss || null,
+          takeProfit: orderData.takeProfit || null,
+          orderTag: orderData.orderTag || null,
           offlineOrder: orderData.offlineOrder || false,
           disclosedQty: orderData.disclosedQty || 0,
           validity: orderData.validity || 'DAY',
           state: 'new',
-          strategyId: orderData.strategyId,
-          alertId: orderData.alertId
+          strategyId: orderData.strategyId || null,
+          alertId: orderData.alertId || null
         }
       });
 
