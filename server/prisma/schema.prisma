@@ -16,6 +16,12 @@ model User {
   updatedAt DateTime      @updatedAt
   tokens    FyersToken[]
   sessions  Session[]
+  strategies Strategy[]
+  alerts    Alert[]
+  orders    Order[]
+  positions Position[]
+  portfolios Portfolio[]
+  settings  UserSettings?
 
   @@map("users")
 }
@@ -62,4 +68,168 @@ model OAuthState {
 
   @@index([expiresAt])
   @@map("oauth_states")
+}
+
+model Strategy {
+  id                  String   @id @default(cuid())
+  userId              String
+  name                String
+  modeOverride        String?  // paper|live|null
+  requireManualReview Boolean  @default(false)
+  allowedSymbols      String[] @default([])
+  riskLimits          Json?    // { maxNotionalPerOrder, maxNotionalPerDay, maxOrdersPerMinute }
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  user   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  alerts Alert[]
+  orders Order[]
+
+  @@index([userId])
+  @@map("strategies")
+}
+
+model Alert {
+  id             String   @id @default(cuid())
+  userId         String
+  strategyId     String
+  source         String   @default("chartlink") // chartlink, manual, etc.
+  rawPayload     Json
+  idempotencyKey String   @unique
+  status         String   @default("pending") // pending, processed, rejected
+  createdAt      DateTime @default(now())
+  processedAt    DateTime?
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  strategy Strategy @relation(fields: [strategyId], references: [id], onDelete: Cascade)
+  orders   Order[]
+
+  @@index([userId, status])
+  @@index([idempotencyKey])
+  @@map("alerts")
+}
+
+model Order {
+  id           String   @id @default(cuid())
+  userId       String
+  strategyId   String?
+  alertId      String?
+  mode         String   // paper|live
+  side         Int      // 1=buy, -1=sell
+  type         Int      // 1=limit, 2=market, 3=stop, 4=stop-limit
+  productType  String   // INTRADAY, CNC, MARGIN, CO, BO, MTF
+  symbol       String
+  qty          Int
+  limitPrice   Float?
+  stopPrice    Float?
+  stopLoss     Float?
+  takeProfit   Float?
+  orderTag     String?
+  offlineOrder Boolean  @default(false)
+  disclosedQty Int      @default(0)
+  validity     String   @default("DAY")
+  state        String   @default("new") // new, working, filled, partial, cancelled, rejected
+  liveOrderId  String?  // Fyers order ID for live orders
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  filledAt      DateTime?
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  strategy Strategy? @relation(fields: [strategyId], references: [id], onDelete: SetNull)
+  alert    Alert?   @relation(fields: [alertId], references: [id], onDelete: SetNull)
+  executions Execution[]
+
+  @@index([userId, mode, state])
+  @@index([symbol])
+  @@index([createdAt])
+  @@map("orders")
+}
+
+model Execution {
+  id        String   @id @default(cuid())
+  orderId   String
+  symbol    String
+  price     Float
+  qty       Int
+  side      Int      // 1=buy, -1=sell
+  mode      String   // paper|live
+  timestamp DateTime @default(now())
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([symbol, timestamp])
+  @@map("executions")
+}
+
+model Position {
+  id        String   @id @default(cuid())
+  userId    String
+  symbol    String
+  qty       Int
+  avgPrice  Float
+  mode      String   // paper|live
+  mtm       Float    @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, symbol, mode])
+  @@index([userId, mode])
+  @@map("positions")
+}
+
+model Portfolio {
+  id          String   @id @default(cuid())
+  userId      String
+  mode        String   // paper|live
+  cashBalance Float    @default(0)
+  dayPnl      Float    @default(0)
+  totalPnl    Float    @default(0)
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, mode])
+  @@map("portfolios")
+}
+
+model SymbolMeta {
+  symbol    String   @id
+  tickSize  Float
+  lotSize    Int
+  segment   String
+  exchange  String
+  updatedAt DateTime @updatedAt
+
+  @@map("symbol_meta")
+}
+
+model Event {
+  id        String   @id @default(cuid())
+  refType   String?  // order, alert, etc.
+  refId     String?  // order ID, alert ID, etc.
+  type      String   // order_placed, order_filled, alert_received, etc.
+  payload   Json?
+  timestamp DateTime @default(now())
+
+  @@index([refType, refId])
+  @@index([timestamp])
+  @@map("events")
+}
+
+model UserSettings {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  webhookSecret     String
+  webhookToken      String   @unique
+  defaultMode       String   @default("paper") // paper|live
+  settings          Json?    // Additional user preferences
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_settings")
 }

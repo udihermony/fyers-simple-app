@@ -273,6 +273,24 @@ export default function Dashboard() {
             gap: "15px",
             alignItems: "center"
           }}>
+            <Link href="/trading">
+              <a style={{
+                padding: "10px 20px",
+                background: "linear-gradient(135deg, #10b981, #059669)",
+                color: "white",
+                textDecoration: "none",
+                borderRadius: "25px",
+                fontSize: "0.9rem",
+                fontWeight: "600",
+                boxShadow: "0 4px 6px rgba(16, 185, 129, 0.3)",
+                transition: "transform 0.2s ease"
+              }}
+              onMouseOver={(e) => e.target.style.transform = "translateY(-2px)"}
+              onMouseOut={(e) => e.target.style.transform = "translateY(0)"}
+              >
+                Trading
+              </a>
+            </Link>
             <Link href="/profile">
               <a style={{
                 padding: "10px 20px",

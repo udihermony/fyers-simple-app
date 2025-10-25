@@ -4,6 +4,9 @@ const cookieParser = require("cookie-parser");
 const { fyersModel } = require("fyers-api-v3");
 const { prisma } = require("./prisma/client");
 const crypto = require("crypto");
+const tradingAPI = require("./api/trading");
+const paperEngine = require("./services/paperEngine");
+const symbolMaster = require("./services/symbolMaster");
 require("dotenv").config();
 
 const app = express();
@@ -428,6 +431,27 @@ app.get("/health/db", async (_req, res) => {
   }
 });
 
-app.listen(PORT, () => {
+// Setup trading API routes
+tradingAPI.setupRoutes(app);
+
+// Initialize services
+async function initializeServices() {
+  try {
+    // Preload common symbols
+    await symbolMaster.preloadCommonSymbols();
+    console.log("Symbol master initialized");
+
+    // Start paper trading engine
+    paperEngine.start();
+    console.log("Paper trading engine started");
+
+    console.log("All services initialized successfully");
+  } catch (error) {
+    console.error("Error initializing services:", error);
+  }
+}
+
+app.listen(PORT, async () => {
   console.log(`Server listening on ${PORT}`);
+  await initializeServices();
 });
