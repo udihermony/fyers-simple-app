@@ -90,6 +90,40 @@ if (typeof document !== 'undefined') {
       font-weight: 600;
       color: #374151;
     }
+    
+    /* Mobile responsive table */
+    .table-container {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    
+    @media (max-width: 768px) {
+      .table {
+        min-width: 600px; /* Ensure table doesn't get too cramped */
+      }
+      .table th, .table td {
+        padding: 8px 6px;
+        font-size: 14px;
+      }
+      .table th:nth-child(3), .table td:nth-child(3), /* Type column */
+      .table th:nth-child(6), .table td:nth-child(6), /* Mode column */
+      .table th:nth-child(8), .table td:nth-child(8) { /* Created column */
+        display: none;
+      }
+    }
+    
+    @media (max-width: 480px) {
+      .table {
+        min-width: 500px;
+      }
+      .table th, .table td {
+        padding: 6px 4px;
+        font-size: 12px;
+      }
+      .table th:nth-child(7), .table td:nth-child(7) { /* State column */
+        display: none;
+      }
+    }
     .status-badge {
       padding: 4px 8px;
       border-radius: 12px;
@@ -617,60 +651,62 @@ export default function TradingDashboard() {
             </div>
             
             {orders.length > 0 ? (
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Symbol</th>
-                    <th>Side</th>
-                    <th>Type</th>
-                    <th>Qty</th>
-                    <th>Price</th>
-                    <th>Mode</th>
-                    <th>State</th>
-                    <th>Created</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {orders.map((order) => (
-                    <tr key={order.id}>
-                      <td>{order.symbol}</td>
-                      <td>{order.side === 1 ? 'Buy' : 'Sell'}</td>
-                      <td>{order.type === 1 ? 'Limit' : order.type === 2 ? 'Market' : order.type === 3 ? 'Stop' : 'Stop-Limit'}</td>
-                      <td>{order.qty}</td>
-                      <td>{order.limitPrice ? formatCurrency(order.limitPrice) : '-'}</td>
-                      <td>
-                        <span className={`status-badge status-${order.mode}`}>
-                          {order.mode}
-                        </span>
-                      </td>
-                      <td>
-                        <span 
-                          className="status-badge"
-                          style={{ 
-                            background: getStatusColor(order.state) + '20',
-                            color: getStatusColor(order.state)
-                          }}
-                        >
-                          {order.state}
-                        </span>
-                      </td>
-                      <td>{new Date(order.createdAt).toLocaleString()}</td>
-                      <td>
-                        {['new', 'working'].includes(order.state) && (
-                          <button 
-                            className="btn btn-danger"
-                            style={{ padding: "5px 10px", fontSize: "12px" }}
-                            onClick={() => cancelOrder(order.id)}
-                          >
-                            Cancel
-                          </button>
-                        )}
-                      </td>
+              <div className="table-container">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Symbol</th>
+                      <th>Side</th>
+                      <th>Type</th>
+                      <th>Qty</th>
+                      <th>Price</th>
+                      <th>Mode</th>
+                      <th>State</th>
+                      <th>Created</th>
+                      <th>Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {orders.map((order) => (
+                      <tr key={order.id}>
+                        <td>{order.symbol}</td>
+                        <td>{order.side === 1 ? 'Buy' : 'Sell'}</td>
+                        <td>{order.type === 1 ? 'Limit' : order.type === 2 ? 'Market' : order.type === 3 ? 'Stop' : 'Stop-Limit'}</td>
+                        <td>{order.qty}</td>
+                        <td>{order.limitPrice ? formatCurrency(order.limitPrice) : '-'}</td>
+                        <td>
+                          <span className={`status-badge status-${order.mode}`}>
+                            {order.mode}
+                          </span>
+                        </td>
+                        <td>
+                          <span 
+                            className="status-badge"
+                            style={{ 
+                              background: getStatusColor(order.state) + '20',
+                              color: getStatusColor(order.state)
+                            }}
+                          >
+                            {order.state}
+                          </span>
+                        </td>
+                        <td>{new Date(order.createdAt).toLocaleString()}</td>
+                        <td>
+                          {['new', 'working'].includes(order.state) && (
+                            <button 
+                              className="btn btn-danger"
+                              style={{ padding: "5px 10px", fontSize: "12px" }}
+                              onClick={() => cancelOrder(order.id)}
+                            >
+                              Cancel
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             ) : (
               <div style={{
                 textAlign: "center",
@@ -703,56 +739,58 @@ export default function TradingDashboard() {
             </div>
             
             {alerts.length > 0 ? (
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Strategy</th>
-                    <th>Symbol</th>
-                    <th>Side</th>
-                    <th>Type</th>
-                    <th>Qty</th>
-                    <th>Price</th>
-                    <th>Status</th>
-                    <th>Created</th>
-                    <th>Orders</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {alerts.map((alert) => (
-                    <tr key={alert.id}>
-                      <td>{alert.strategy?.name || 'Unknown'}</td>
-                      <td>{alert.rawPayload?.symbol || '-'}</td>
-                      <td>{alert.rawPayload?.side || '-'}</td>
-                      <td>{alert.rawPayload?.order_type || '-'}</td>
-                      <td>{alert.rawPayload?.quantity || '-'}</td>
-                      <td>{alert.rawPayload?.limit_price || alert.rawPayload?.price || '-'}</td>
-                      <td>
-                        <span 
-                          className="status-badge"
-                          style={{ 
-                            background: getStatusColor(alert.status) + '20',
-                            color: getStatusColor(alert.status)
-                          }}
-                        >
-                          {alert.status}
-                        </span>
-                      </td>
-                      <td>{new Date(alert.createdAt).toLocaleString()}</td>
-                      <td>
-                        {alert.orders && alert.orders.length > 0 ? (
-                          <span style={{ fontSize: "0.8rem", color: "#10b981" }}>
-                            {alert.orders.length} order(s)
-                          </span>
-                        ) : (
-                          <span style={{ fontSize: "0.8rem", color: "#64748b" }}>
-                            No orders
-                          </span>
-                        )}
-                      </td>
+              <div className="table-container">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Strategy</th>
+                      <th>Symbol</th>
+                      <th>Side</th>
+                      <th>Type</th>
+                      <th>Qty</th>
+                      <th>Price</th>
+                      <th>Status</th>
+                      <th>Created</th>
+                      <th>Orders</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {alerts.map((alert) => (
+                      <tr key={alert.id}>
+                        <td>{alert.strategy?.name || 'Unknown'}</td>
+                        <td>{alert.rawPayload?.symbol || '-'}</td>
+                        <td>{alert.rawPayload?.side || '-'}</td>
+                        <td>{alert.rawPayload?.order_type || '-'}</td>
+                        <td>{alert.rawPayload?.quantity || '-'}</td>
+                        <td>{alert.rawPayload?.limit_price || alert.rawPayload?.price || '-'}</td>
+                        <td>
+                          <span 
+                            className="status-badge"
+                            style={{ 
+                              background: getStatusColor(alert.status) + '20',
+                              color: getStatusColor(alert.status)
+                            }}
+                          >
+                            {alert.status}
+                          </span>
+                        </td>
+                        <td>{new Date(alert.createdAt).toLocaleString()}</td>
+                        <td>
+                          {alert.orders && alert.orders.length > 0 ? (
+                            <span style={{ fontSize: "0.8rem", color: "#10b981" }}>
+                              {alert.orders.length} order(s)
+                            </span>
+                          ) : (
+                            <span style={{ fontSize: "0.8rem", color: "#64748b" }}>
+                              No orders
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             ) : (
               <div style={{
                 textAlign: "center",
@@ -791,41 +829,43 @@ export default function TradingDashboard() {
             </div>
             
             {positions.length > 0 ? (
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Symbol</th>
-                    <th>Qty</th>
-                    <th>Avg Price</th>
-                    <th>Current Price</th>
-                    <th>MTM</th>
-                    <th>Mode</th>
-                    <th>Updated</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {positions.map((position) => (
-                    <tr key={position.id}>
-                      <td>{position.symbol}</td>
-                      <td>{position.qty}</td>
-                      <td>{formatCurrency(position.avgPrice)}</td>
-                      <td>-</td>
-                      <td style={{ 
-                        color: position.mtm >= 0 ? "#10b981" : "#ef4444",
-                        fontWeight: "600"
-                      }}>
-                        {formatCurrency(position.mtm)}
-                      </td>
-                      <td>
-                        <span className={`status-badge status-${position.mode}`}>
-                          {position.mode}
-                        </span>
-                      </td>
-                      <td>{new Date(position.updatedAt).toLocaleString()}</td>
+              <div className="table-container">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Symbol</th>
+                      <th>Qty</th>
+                      <th>Avg Price</th>
+                      <th>Current Price</th>
+                      <th>MTM</th>
+                      <th>Mode</th>
+                      <th>Updated</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {positions.map((position) => (
+                      <tr key={position.id}>
+                        <td>{position.symbol}</td>
+                        <td>{position.qty}</td>
+                        <td>{formatCurrency(position.avgPrice)}</td>
+                        <td>-</td>
+                        <td style={{ 
+                          color: position.mtm >= 0 ? "#10b981" : "#ef4444",
+                          fontWeight: "600"
+                        }}>
+                          {formatCurrency(position.mtm)}
+                        </td>
+                        <td>
+                          <span className={`status-badge status-${position.mode}`}>
+                            {position.mode}
+                          </span>
+                        </td>
+                        <td>{new Date(position.updatedAt).toLocaleString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             ) : (
               <div style={{
                 textAlign: "center",
