@@ -372,6 +372,7 @@ export default function TradingDashboard() {
   const [alerts, setAlerts] = useState([]);
   const [simulationState, setSimulationState] = useState({
     isRunning: false,
+    testName: '',
     allocatedFunds: 100000, // Default 1 lakh
     currentBalance: 100000,
     totalTrades: 0,
@@ -381,7 +382,8 @@ export default function TradingDashboard() {
     startTime: null,
     strategies: [],
     simulationOrders: [],
-    simulationPositions: []
+    simulationPositions: [],
+    testHistory: []
   });
   const [orderForm, setOrderForm] = useState({
     symbol: 'NSE:SBIN-EQ',
@@ -1500,6 +1502,21 @@ export default function TradingDashboard() {
               gap: "20px",
               marginBottom: "30px"
             }}>
+              {/* Test Name */}
+              <div className="form-group">
+                <label>Test Name</label>
+                <input
+                  type="text"
+                  value={simulationState.testName || ''}
+                  onChange={(e) => setSimulationState(prev => ({
+                    ...prev,
+                    testName: e.target.value
+                  }))}
+                  placeholder="e.g., Strategy Test 1"
+                  disabled={simulationState.isRunning}
+                />
+              </div>
+
               {/* Fund Allocation */}
               <div className="form-group">
                 <label>Allocated Funds (₹)</label>
@@ -1645,7 +1662,7 @@ export default function TradingDashboard() {
                   <table className="table">
                     <thead>
                       <tr>
-                        <th>Test #</th>
+                        <th>Test Name</th>
                         <th>Started</th>
                         <th>Duration</th>
                         <th>Funds</th>
@@ -1658,7 +1675,7 @@ export default function TradingDashboard() {
                     <tbody>
                       {simulationState.testHistory.map((test, index) => (
                         <tr key={index}>
-                          <td>{test.testNumber || index + 1}</td>
+                          <td><strong>{test.testName || `Test ${index + 1}`}</strong></td>
                           <td>{new Date(test.startTime).toLocaleString()}</td>
                           <td>{test.duration || 'N/A'}</td>
                           <td>{formatCurrency(test.allocatedFunds)}</td>
