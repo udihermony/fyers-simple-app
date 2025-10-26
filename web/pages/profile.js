@@ -487,22 +487,22 @@ export default function Profile() {
               fontSize: "1.5rem",
               fontWeight: "bold"
             }}>
-              {profile.name ? profile.name.charAt(0).toUpperCase() : "U"}
+              {(profile?.data?.name || profile?.name) ? (profile?.data?.name || profile?.name).charAt(0).toUpperCase() : "U"}
             </div>
             <div>
               <h3 style={{
                 margin: "0 0 5px 0",
                 fontSize: "1.3rem",
                 color: "#1e293b"
-              }}>
-                {profile.name || "Fyers User"}
+              }}              >
+                {(profile?.data?.name || profile?.name) || "Fyers User"}
               </h3>
               <p style={{
                 margin: "0",
                 color: "#64748b",
                 fontSize: "0.95rem"
               }}>
-                {profile.email || "No email"}
+                {(profile?.data?.email_id || profile?.email) || "No email"}
               </p>
               <p style={{
                 margin: "5px 0 0 0",
@@ -529,7 +529,7 @@ export default function Profile() {
               gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
               gap: "15px"
             }}>
-              {Object.entries(profile).map(([key, value]) => (
+              {Object.entries(profile?.data || profile || {}).map(([key, value]) => (
                 <div key={key} style={{
                   padding: "12px",
                   background: "#f8fafc",
