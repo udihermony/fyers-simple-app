@@ -364,7 +364,12 @@ export default function TradingDashboard() {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState(null);
   const [activeTab, setActiveTab] = useState('orders');
-  const [tradingMode, setTradingMode] = useState('paper'); // 'paper' or 'live'
+  const [tradingMode, setTradingMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('tradingMode') || 'paper';
+    }
+    return 'paper';
+  });
   const [orders, setOrders] = useState([]);
   const [positions, setPositions] = useState([]);
   const [portfolio, setPortfolio] = useState(null);
@@ -902,7 +907,13 @@ export default function TradingDashboard() {
               <input 
                 type="checkbox" 
                 checked={tradingMode === 'live'}
-                onChange={(e) => setTradingMode(e.target.checked ? 'live' : 'paper')}
+                onChange={(e) => {
+                  const newMode = e.target.checked ? 'live' : 'paper';
+                  setTradingMode(newMode);
+                  if (typeof window !== 'undefined') {
+                    localStorage.setItem('tradingMode', newMode);
+                  }
+                }}
               />
               <span className="mode-slider"></span>
             </label>
