@@ -15,6 +15,81 @@ if (typeof document !== 'undefined') {
       from { opacity: 0; transform: translateY(20px); }
       to { opacity: 1; transform: translateY(0); }
     }
+    
+    /* Mode Toggle Switch */
+    .mode-toggle {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      padding: 15px 20px;
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: 12px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+      margin-bottom: 20px;
+    }
+    .mode-toggle-label {
+      font-weight: 600;
+      color: #374151;
+      font-size: 14px;
+    }
+    .switch-container {
+      position: relative;
+      display: inline-block;
+    }
+    .mode-switch {
+      position: relative;
+      display: inline-block;
+      width: 60px;
+      height: 30px;
+    }
+    .mode-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .mode-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #e5e7eb;
+      transition: 0.4s;
+      border-radius: 30px;
+    }
+    .mode-slider:before {
+      position: absolute;
+      content: "";
+      height: 22px;
+      width: 22px;
+      left: 4px;
+      bottom: 4px;
+      background-color: white;
+      transition: 0.4s;
+      border-radius: 50%;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    .mode-switch input:checked + .mode-slider {
+      background: linear-gradient(135deg, #ef4444, #dc2626);
+    }
+    .mode-switch input:checked + .mode-slider:before {
+      transform: translateX(30px);
+    }
+    .mode-indicator {
+      padding: 5px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .mode-paper {
+      background: #dbeafe;
+      color: #1e40af;
+    }
+    .mode-live {
+      background: #fee2e2;
+      color: #991b1b;
+    }
   `;
   document.head.appendChild(style);
 }
@@ -26,6 +101,12 @@ export default function Dashboard() {
   const [hLoading, setHLoading] = useState(false);
   const [funds, setFunds] = useState(null);
   const [fLoading, setFLoading] = useState(false);
+  const [tradingMode, setTradingMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('tradingMode') || 'paper';
+    }
+    return 'paper';
+  });
 
   const fetchMe = async () => {
     setLoading(true);
@@ -110,6 +191,13 @@ export default function Dashboard() {
       setFunds(null);
     } catch (e) {
       console.error("Logout error", e);
+    }
+  };
+
+  const handleModeChange = (newMode) => {
+    setTradingMode(newMode);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('tradingMode', newMode);
     }
   };
 
@@ -326,6 +414,24 @@ export default function Dashboard() {
               Logout
             </button>
           </div>
+        </div>
+
+        {/* Mode Toggle */}
+        <div className="mode-toggle">
+          <span className="mode-toggle-label">Trading Mode:</span>
+          <div className="switch-container">
+            <label className="mode-switch">
+              <input 
+                type="checkbox" 
+                checked={tradingMode === 'live'}
+                onChange={(e) => handleModeChange(e.target.checked ? 'live' : 'paper')}
+              />
+              <span className="mode-slider"></span>
+            </label>
+          </div>
+          <span className={`mode-indicator ${tradingMode === 'paper' ? 'mode-paper' : 'mode-live'}`}>
+            {tradingMode === 'paper' ? '📄 PAPER TRADING' : '🔴 LIVE TRADING'}
+          </span>
         </div>
 
         {/* Quick Stats */}
