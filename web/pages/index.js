@@ -199,7 +199,7 @@ export default function Dashboard() {
         const data = await res.json();
         setSimulationState({
           isRunning: data.isRunning || false,
-          testName: data.testName || '',
+          testName: data.testName || data.name || '',
           allocatedFunds: data.allocatedFunds || 100000,
           currentBalance: data.currentBalance || 100000,
           startTime: data.startTime ? new Date(data.startTime) : null
@@ -476,85 +476,6 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Simulation Funds (when test is running in paper mode) */}
-        {tradingMode === 'paper' && simulationState.isRunning && (
-          <div style={{
-            background: "linear-gradient(135deg, #6366f1, #4f46e5)",
-            borderRadius: "15px",
-            padding: "25px",
-            color: "white",
-            boxShadow: "0 8px 16px rgba(99, 102, 241, 0.3)",
-            marginBottom: "30px",
-            animation: "fadeIn 0.6s ease-out"
-          }}>
-            <div style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              marginBottom: "15px"
-            }}>
-              <div style={{
-                display: "flex",
-                alignItems: "center"
-              }}>
-                <div style={{
-                  width: "50px",
-                  height: "50px",
-                  background: "rgba(255,255,255,0.2)",
-                  borderRadius: "12px",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  marginRight: "15px"
-                }}>
-                  <span style={{ fontSize: "1.5rem" }}>🧪</span>
-                </div>
-                <div>
-                  <h3 style={{ margin: "0", fontSize: "1.1rem", opacity: "0.9" }}>Simulation Test</h3>
-                  <p style={{ margin: "5px 0 0 0", fontSize: "0.9rem", opacity: "0.8" }}>
-                    {simulationState.testName || 'Unnamed Test'}
-                  </p>
-                </div>
-              </div>
-              <div style={{
-                background: "rgba(255,255,255,0.2)",
-                padding: "8px 16px",
-                borderRadius: "8px",
-                fontSize: "0.9rem",
-                fontWeight: "600"
-              }}>
-                🟢 RUNNING
-              </div>
-            </div>
-            <div style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(2, 1fr)",
-              gap: "15px"
-            }}>
-              <div style={{
-                background: "rgba(255,255,255,0.1)",
-                padding: "15px",
-                borderRadius: "10px"
-              }}>
-                <div style={{ fontSize: "0.85rem", opacity: "0.8", marginBottom: "5px" }}>Allocated Funds</div>
-                <div style={{ fontSize: "1.5rem", fontWeight: "600" }}>
-                  {fmt(simulationState.allocatedFunds)}
-                </div>
-              </div>
-              <div style={{
-                background: "rgba(255,255,255,0.1)",
-                padding: "15px",
-                borderRadius: "10px"
-              }}>
-                <div style={{ fontSize: "0.85rem", opacity: "0.8", marginBottom: "5px" }}>Current Balance</div>
-                <div style={{ fontSize: "1.5rem", fontWeight: "600" }}>
-                  {fmt(simulationState.currentBalance)}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Quick Stats */}
         <div style={{
           display: "grid",
@@ -588,9 +509,13 @@ export default function Dashboard() {
                 <span style={{ fontSize: "1.5rem" }}>💼</span>
               </div>
               <div>
-                <h3 style={{ margin: "0", fontSize: "1.1rem", opacity: "0.9" }}>Portfolio Value</h3>
+                <h3 style={{ margin: "0", fontSize: "1.1rem", opacity: "0.9" }}>
+                  {tradingMode === 'paper' && simulationState.isRunning ? 'Current Balance' : 'Portfolio Value'}
+                </h3>
                 <p style={{ margin: "0", fontSize: "1.8rem", fontWeight: "700" }}>
-                  {holdings ? fmt(holdings.total_value || 0) : "Loading..."}
+                  {tradingMode === 'paper' && simulationState.isRunning 
+                    ? fmt(simulationState.currentBalance) 
+                    : holdings ? fmt(holdings.total_value || 0) : "Loading..."}
                 </p>
               </div>
             </div>
@@ -639,9 +564,13 @@ export default function Dashboard() {
                 <span style={{ fontSize: "1.5rem" }}>💰</span>
               </div>
               <div>
-                <h3 style={{ margin: "0", fontSize: "1.1rem", opacity: "0.9" }}>Available Funds</h3>
+                <h3 style={{ margin: "0", fontSize: "1.1rem", opacity: "0.9" }}>
+                  {tradingMode === 'paper' && simulationState.isRunning ? 'Allocated Funds' : 'Available Funds'}
+                </h3>
                 <p style={{ margin: "0", fontSize: "1.8rem", fontWeight: "700" }}>
-                  {funds ? fmt((funds.capital || 0) + (funds.commodity || 0)) : "Loading..."}
+                  {tradingMode === 'paper' && simulationState.isRunning
+                    ? fmt(simulationState.allocatedFunds)
+                    : funds ? fmt((funds.capital || 0) + (funds.commodity || 0)) : "Loading..."}
                 </p>
               </div>
             </div>

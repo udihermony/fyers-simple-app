@@ -239,6 +239,7 @@ model Simulation {
   id                  String   @id @default(cuid())
   userId              String   @unique
   isRunning           Boolean  @default(false)
+  testName            String   @default("")
   allocatedFunds      Float    @default(100000)
   currentBalance      Float    @default(100000)
   totalTrades         Int      @default(0)

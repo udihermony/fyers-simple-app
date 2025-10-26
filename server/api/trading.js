@@ -760,7 +760,7 @@ class TradingAPI {
 
     try {
       const userId = req.user.id;
-      const { allocatedFunds = 100000 } = req.body;
+      const { allocatedFunds = 100000, testName = '' } = req.body;
 
       // Check if simulation is already running
       const existingSimulation = await prisma.simulation.findFirst({
@@ -776,6 +776,7 @@ class TradingAPI {
         where: { userId },
         update: {
           isRunning: true,
+          testName: testName || '',
           allocatedFunds,
           currentBalance: allocatedFunds,
           startTime: new Date(),
@@ -787,6 +788,7 @@ class TradingAPI {
         create: {
           userId,
           isRunning: true,
+          testName: testName || '',
           allocatedFunds,
           currentBalance: allocatedFunds,
           startTime: new Date(),

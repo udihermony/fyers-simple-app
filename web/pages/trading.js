@@ -601,7 +601,8 @@ export default function TradingDashboard() {
         },
         credentials: "include",
         body: JSON.stringify({
-          allocatedFunds: simulationState.allocatedFunds
+          allocatedFunds: simulationState.allocatedFunds,
+          testName: simulationState.testName
         })
       });
 
@@ -610,6 +611,7 @@ export default function TradingDashboard() {
         setSimulationState(prev => ({
           ...prev,
           isRunning: true,
+          testName: prev.testName, // Keep the test name
           startTime: new Date(),
           currentBalance: data.currentBalance || prev.allocatedFunds,
           strategies: data.strategies || []
