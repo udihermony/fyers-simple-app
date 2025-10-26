@@ -107,6 +107,13 @@ export default function Dashboard() {
     }
     return 'paper';
   });
+  const [simulationState, setSimulationState] = useState({
+    isRunning: false,
+    testName: '',
+    allocatedFunds: 100000,
+    currentBalance: 100000,
+    startTime: null
+  });
 
   const fetchMe = async () => {
     setLoading(true);
@@ -139,8 +146,11 @@ export default function Dashboard() {
     if (profile) {
       fetchHoldings();
       fetchFunds();
+      if (tradingMode === 'paper') {
+        fetchSimulationStatus();
+      }
     }
-  }, [profile]);
+  }, [profile, tradingMode]);
 
   const fetchHoldings = async () => {
     setHLoading(true);
@@ -177,6 +187,26 @@ export default function Dashboard() {
       setFunds(null);
     } finally {
       setFLoading(false);
+    }
+  };
+
+  const fetchSimulationStatus = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/simulation/status`, {
+        credentials: "include"
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSimulationState({
+          isRunning: data.isRunning || false,
+          testName: data.testName || '',
+          allocatedFunds: data.allocatedFunds || 100000,
+          currentBalance: data.currentBalance || 100000,
+          startTime: data.startTime ? new Date(data.startTime) : null
+        });
+      }
+    } catch (e) {
+      console.error("Error fetching simulation status:", e);
     }
   };
 
@@ -417,7 +447,7 @@ export default function Dashboard() {
         </div>
 
         {/* Mode Toggle */}
-        <div className="mode-toggle">
+        <div className="mode-toggle" style={{ flexWrap: 'wrap', gap: '10px' }}>
           <span className="mode-toggle-label">Trading Mode:</span>
           <div className="switch-container">
             <label className="mode-switch">
@@ -432,7 +462,98 @@ export default function Dashboard() {
           <span className={`mode-indicator ${tradingMode === 'paper' ? 'mode-paper' : 'mode-live'}`}>
             {tradingMode === 'paper' ? '📄 PAPER TRADING' : '🔴 LIVE TRADING'}
           </span>
+          {tradingMode === 'paper' && simulationState.isRunning && (
+            <span style={{
+              padding: "5px 12px",
+              background: "#10b981",
+              color: "white",
+              borderRadius: "6px",
+              fontSize: "12px",
+              fontWeight: "600"
+            }}>
+              🟢 TEST RUNNING: {simulationState.testName || 'Unnamed Test'}
+            </span>
+          )}
         </div>
+
+        {/* Simulation Funds (when test is running in paper mode) */}
+        {tradingMode === 'paper' && simulationState.isRunning && (
+          <div style={{
+            background: "linear-gradient(135deg, #6366f1, #4f46e5)",
+            borderRadius: "15px",
+            padding: "25px",
+            color: "white",
+            boxShadow: "0 8px 16px rgba(99, 102, 241, 0.3)",
+            marginBottom: "30px",
+            animation: "fadeIn 0.6s ease-out"
+          }}>
+            <div style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: "15px"
+            }}>
+              <div style={{
+                display: "flex",
+                alignItems: "center"
+              }}>
+                <div style={{
+                  width: "50px",
+                  height: "50px",
+                  background: "rgba(255,255,255,0.2)",
+                  borderRadius: "12px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  marginRight: "15px"
+                }}>
+                  <span style={{ fontSize: "1.5rem" }}>🧪</span>
+                </div>
+                <div>
+                  <h3 style={{ margin: "0", fontSize: "1.1rem", opacity: "0.9" }}>Simulation Test</h3>
+                  <p style={{ margin: "5px 0 0 0", fontSize: "0.9rem", opacity: "0.8" }}>
+                    {simulationState.testName || 'Unnamed Test'}
+                  </p>
+                </div>
+              </div>
+              <div style={{
+                background: "rgba(255,255,255,0.2)",
+                padding: "8px 16px",
+                borderRadius: "8px",
+                fontSize: "0.9rem",
+                fontWeight: "600"
+              }}>
+                🟢 RUNNING
+              </div>
+            </div>
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(2, 1fr)",
+              gap: "15px"
+            }}>
+              <div style={{
+                background: "rgba(255,255,255,0.1)",
+                padding: "15px",
+                borderRadius: "10px"
+              }}>
+                <div style={{ fontSize: "0.85rem", opacity: "0.8", marginBottom: "5px" }}>Allocated Funds</div>
+                <div style={{ fontSize: "1.5rem", fontWeight: "600" }}>
+                  {fmt(simulationState.allocatedFunds)}
+                </div>
+              </div>
+              <div style={{
+                background: "rgba(255,255,255,0.1)",
+                padding: "15px",
+                borderRadius: "10px"
+              }}>
+                <div style={{ fontSize: "0.85rem", opacity: "0.8", marginBottom: "5px" }}>Current Balance</div>
+                <div style={{ fontSize: "1.5rem", fontWeight: "600" }}>
+                  {fmt(simulationState.currentBalance)}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Quick Stats */}
         <div style={{
