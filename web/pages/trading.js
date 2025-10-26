@@ -92,6 +92,92 @@ if (typeof document !== 'undefined') {
       transform: translateY(-2px);
       box-shadow: 0 4px 6px rgba(16, 185, 129, 0.3);
     }
+    /* Mode Toggle Switch */
+    .mode-toggle {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      padding: 15px 20px;
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: 12px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+      margin-bottom: 20px;
+    }
+    .mode-toggle-label {
+      font-weight: 600;
+      color: #374151;
+      font-size: 14px;
+    }
+    .switch-container {
+      position: relative;
+      display: inline-block;
+    }
+    .mode-switch {
+      position: relative;
+      display: inline-block;
+      width: 60px;
+      height: 30px;
+    }
+    .mode-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .mode-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #e5e7eb;
+      transition: 0.4s;
+      border-radius: 30px;
+    }
+    .mode-slider:before {
+      position: absolute;
+      content: "";
+      height: 22px;
+      width: 22px;
+      left: 4px;
+      bottom: 4px;
+      background-color: white;
+      transition: 0.4s;
+      border-radius: 50%;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    .mode-switch input:checked + .mode-slider {
+      background: linear-gradient(135deg, #ef4444, #dc2626);
+    }
+    .mode-switch input:checked + .mode-slider:before {
+      transform: translateX(30px);
+    }
+    .mode-indicator {
+      padding: 5px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .mode-paper {
+      background: #dbeafe;
+      color: #1e40af;
+    }
+    .mode-live {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+    
+    @media (max-width: 768px) {
+      .mode-toggle {
+        padding: 12px 15px;
+        flex-wrap: wrap;
+      }
+      .mode-toggle-label {
+        width: 100%;
+        margin-bottom: 5px;
+      }
+    }
+
     .table {
       width: 100%;
       border-collapse: collapse;
@@ -278,6 +364,7 @@ export default function TradingDashboard() {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState(null);
   const [activeTab, setActiveTab] = useState('orders');
+  const [tradingMode, setTradingMode] = useState('paper'); // 'paper' or 'live'
   const [orders, setOrders] = useState([]);
   const [positions, setPositions] = useState([]);
   const [portfolio, setPortfolio] = useState(null);
@@ -805,6 +892,24 @@ export default function TradingDashboard() {
           </div>
         </div>
 
+        {/* Mode Toggle */}
+        <div className="mode-toggle">
+          <span className="mode-toggle-label">Trading Mode:</span>
+          <div className="switch-container">
+            <label className="mode-switch">
+              <input 
+                type="checkbox" 
+                checked={tradingMode === 'live'}
+                onChange={(e) => setTradingMode(e.target.checked ? 'live' : 'paper')}
+              />
+              <span className="mode-slider"></span>
+            </label>
+          </div>
+          <span className={`mode-indicator ${tradingMode === 'paper' ? 'mode-paper' : 'mode-live'}`}>
+            {tradingMode === 'paper' ? '📄 PAPER TRADING' : '🔴 LIVE TRADING'}
+          </span>
+        </div>
+
         {/* Portfolio Summary */}
         {portfolio && (
           <div className="trading-card">
@@ -854,7 +959,7 @@ export default function TradingDashboard() {
             <option value="positions">💼 Positions</option>
             <option value="chartlink">📡 Chartlink Alerts</option>
             <option value="place-order">📝 Place Order</option>
-            <option value="paper-trading">🎯 Paper Trading</option>
+            <option value="paper-trading">🎯 Paper Trading Settings</option>
             <option value="settings">⚙️ Settings</option>
           </select>
         </div>
@@ -885,12 +990,14 @@ export default function TradingDashboard() {
           >
             📝 Place Order
           </div>
-          <div 
-            className={`tab ${activeTab === 'paper-trading' ? 'active' : ''}`}
-            onClick={() => setActiveTab('paper-trading')}
-          >
-            🎯 Paper Trading
-          </div>
+          {tradingMode === 'paper' && (
+            <div 
+              className={`tab ${activeTab === 'paper-trading' ? 'active' : ''}`}
+              onClick={() => setActiveTab('paper-trading')}
+            >
+              🎯 Paper Trading Settings
+            </div>
+          )}
           <div 
             className={`tab ${activeTab === 'settings' ? 'active' : ''}`}
             onClick={() => setActiveTab('settings')}
@@ -1529,6 +1636,70 @@ export default function TradingDashboard() {
                 </div>
               </div>
             )}
+
+            {/* Test History */}
+            <div style={{ marginTop: "40px" }}>
+              <h4 style={{ margin: "0 0 20px 0", color: "#1e293b" }}>Test History</h4>
+              {simulationState.testHistory && simulationState.testHistory.length > 0 ? (
+                <div className="table-container">
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>Test #</th>
+                        <th>Started</th>
+                        <th>Duration</th>
+                        <th>Funds</th>
+                        <th>Trades</th>
+                        <th>Win Rate</th>
+                        <th>P&L</th>
+                        <th>Result</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {simulationState.testHistory.map((test, index) => (
+                        <tr key={index}>
+                          <td>{test.testNumber || index + 1}</td>
+                          <td>{new Date(test.startTime).toLocaleString()}</td>
+                          <td>{test.duration || 'N/A'}</td>
+                          <td>{formatCurrency(test.allocatedFunds)}</td>
+                          <td>{test.totalTrades}</td>
+                          <td>{test.totalTrades > 0 ? `${((test.winningTrades / test.totalTrades) * 100).toFixed(1)}%` : '0%'}</td>
+                          <td style={{ 
+                            color: test.totalPnL >= 0 ? "#10b981" : "#ef4444",
+                            fontWeight: "600"
+                          }}>
+                            {formatCurrency(test.totalPnL)}
+                          </td>
+                          <td>
+                            <span 
+                              className="status-badge"
+                              style={{ 
+                                background: test.totalPnL >= 0 ? "#10b981" + '20' : "#ef4444" + '20',
+                                color: test.totalPnL >= 0 ? "#10b981" : "#ef4444"
+                              }}
+                            >
+                              {test.totalPnL >= 0 ? 'Profit' : 'Loss'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div style={{
+                  textAlign: "center",
+                  padding: "40px",
+                  color: "#64748b",
+                  background: "#f8fafc",
+                  borderRadius: "8px"
+                }}>
+                  <div style={{ fontSize: "2rem", marginBottom: "10px" }}>📊</div>
+                  <p>No test history yet</p>
+                  <p style={{ fontSize: "0.9rem", marginTop: "5px" }}>Completed tests will appear here</p>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
