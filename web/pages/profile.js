@@ -11,6 +11,72 @@ if (typeof document !== 'undefined') {
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
     }
+    
+    /* Mode Toggle Switch */
+    .mode-toggle {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      padding: 15px 20px;
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: 12px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+      margin-bottom: 20px;
+    }
+    .mode-switch {
+      position: relative;
+      display: inline-block;
+      width: 60px;
+      height: 30px;
+    }
+    .mode-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .mode-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #e5e7eb;
+      transition: 0.4s;
+      border-radius: 30px;
+    }
+    .mode-slider:before {
+      position: absolute;
+      content: "";
+      height: 22px;
+      width: 22px;
+      left: 4px;
+      bottom: 4px;
+      background-color: white;
+      transition: 0.4s;
+      border-radius: 50%;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    .mode-switch input:checked + .mode-slider {
+      background: linear-gradient(135deg, #ef4444, #dc2626);
+    }
+    .mode-switch input:checked + .mode-slider:before {
+      transform: translateX(30px);
+    }
+    .mode-indicator {
+      padding: 5px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .mode-paper {
+      background: #dbeafe;
+      color: #1e40af;
+    }
+    .mode-live {
+      background: #fee2e2;
+      color: #991b1b;
+    }
   `;
   document.head.appendChild(style);
 }
@@ -25,6 +91,19 @@ export default function Profile() {
   const [hLoading, setHLoading] = useState(false);
   const [funds, setFunds] = useState(null);
   const [fLoading, setFLoading] = useState(false);
+  const [tradingMode, setTradingMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('tradingMode') || 'paper';
+    }
+    return 'paper';
+  });
+  const [simulationState, setSimulationState] = useState({
+    isRunning: false,
+    testName: '',
+    allocatedFunds: 100000,
+    currentBalance: 100000,
+    startTime: null
+  });
 
   const fetchMe = async () => {
     setLoading(true);
@@ -51,6 +130,12 @@ export default function Profile() {
   useEffect(() => {
     fetchMe();
   }, []);
+
+  useEffect(() => {
+    if (tradingMode === 'paper') {
+      fetchSimulationStatus();
+    }
+  }, [tradingMode]);
 
   const fetchQuotes = async () => {
     setQLoading(true);
@@ -106,6 +191,33 @@ export default function Profile() {
       setFunds(null);
     } finally {
       setFLoading(false);
+    }
+  };
+
+  const fetchSimulationStatus = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/simulation/status`, {
+        credentials: "include"
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSimulationState({
+          isRunning: data.isRunning || false,
+          testName: data.testName || data.name || '',
+          allocatedFunds: data.allocatedFunds || 100000,
+          currentBalance: data.currentBalance || 100000,
+          startTime: data.startTime ? new Date(data.startTime) : null
+        });
+      }
+    } catch (e) {
+      console.error("Error fetching simulation status:", e);
+    }
+  };
+
+  const handleModeChange = (newMode) => {
+    setTradingMode(newMode);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('tradingMode', newMode);
     }
   };
 
@@ -321,6 +433,34 @@ export default function Profile() {
           </div>
         </div>
 
+        {/* Mode Toggle */}
+        <div className="mode-toggle" style={{ flexWrap: 'wrap', gap: '10px' }}>
+          <span style={{ fontWeight: 600, color: '#374151', fontSize: '14px' }}>Trading Mode:</span>
+          <label className="mode-switch">
+            <input 
+              type="checkbox" 
+              checked={tradingMode === 'live'}
+              onChange={(e) => handleModeChange(e.target.checked ? 'live' : 'paper')}
+            />
+            <span className="mode-slider"></span>
+          </label>
+          <span className={`mode-indicator ${tradingMode === 'paper' ? 'mode-paper' : 'mode-live'}`}>
+            {tradingMode === 'paper' ? '📄 PAPER TRADING' : '🔴 LIVE TRADING'}
+          </span>
+          {tradingMode === 'paper' && simulationState.isRunning && (
+            <span style={{
+              padding: "5px 12px",
+              background: "#10b981",
+              color: "white",
+              borderRadius: "6px",
+              fontSize: "12px",
+              fontWeight: "600"
+            }}>
+              🟢 TEST RUNNING: {simulationState.testName || 'Unnamed Test'}
+            </span>
+          )}
+        </div>
+
         {/* Profile Card */}
         <div style={{
           background: "linear-gradient(135deg, #f8fafc, #e2e8f0)",
@@ -372,6 +512,50 @@ export default function Profile() {
               }}>
                 ✓ Connected to Fyers
               </p>
+            </div>
+          </div>
+          
+          {/* Full Profile Data */}
+          <div style={{
+            marginTop: "20px",
+            padding: "20px",
+            background: "white",
+            borderRadius: "10px",
+            border: "1px solid #e2e8f0"
+          }}>
+            <h4 style={{ margin: "0 0 15px 0", color: "#1e293b" }}>Complete Profile Data</h4>
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
+              gap: "15px"
+            }}>
+              {Object.entries(profile).map(([key, value]) => (
+                <div key={key} style={{
+                  padding: "12px",
+                  background: "#f8fafc",
+                  borderRadius: "8px",
+                  border: "1px solid #e2e8f0"
+                }}>
+                  <div style={{ 
+                    fontSize: "0.75rem", 
+                    color: "#64748b", 
+                    marginBottom: "5px",
+                    textTransform: "uppercase",
+                    fontWeight: "600"
+                  }}>
+                    {key.replace(/_/g, ' ')}
+                  </div>
+                  <div style={{ 
+                    fontSize: "0.95rem", 
+                    color: "#1e293b",
+                    wordBreak: "break-word"
+                  }}>
+                    {typeof value === 'object' && value !== null
+                      ? JSON.stringify(value, null, 2)
+                      : String(value || 'N/A')}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
