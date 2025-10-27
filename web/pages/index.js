@@ -430,6 +430,24 @@ export default function Dashboard() {
                 Profile
               </a>
             </Link>
+            <Link href="/webhook-test">
+              <a style={{
+                padding: "10px 20px",
+                background: "linear-gradient(135deg, #8b5cf6, #6d28d9)",
+                color: "white",
+                textDecoration: "none",
+                borderRadius: "25px",
+                fontSize: "0.9rem",
+                fontWeight: "600",
+                boxShadow: "0 4px 6px rgba(139, 92, 246, 0.3)",
+                transition: "transform 0.2s ease"
+              }}
+              onMouseOver={(e) => e.target.style.transform = "translateY(-2px)"}
+              onMouseOut={(e) => e.target.style.transform = "translateY(0)"}
+              >
+                🔍 Webhook Test
+              </a>
+            </Link>
             <button
               onClick={logout}
               style={{
