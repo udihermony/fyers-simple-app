@@ -22,66 +22,102 @@ class WebhookService {
    */
   async processChartlinkAlert(req, res, userToken) {
     try {
-      // Extract alert data
-      const alertData = req.body;
+      // Normalize/parse body - handle JSON string, object, or URL-encoded text
+      let alertDataRaw = req.body;
+      if (typeof alertDataRaw === "string") {
+        try {
+          alertDataRaw = JSON.parse(alertDataRaw);
+        } catch (_) {
+          // Try parse key=value pairs (urlencoded-like text)
+          const pairs = Object.fromEntries(
+            String(alertDataRaw)
+              .split("&")
+              .map(kv => kv.split("=").map(decodeURIComponent))
+              .filter(p => p.length === 2)
+          );
+          if (Object.keys(pairs).length) alertDataRaw = pairs;
+        }
+      }
+      const alertData = (alertDataRaw && typeof alertDataRaw === "object" && alertDataRaw !== null) ? alertDataRaw : null;
       if (!alertData) {
-        console.log("Empty request body received from Chartlink");
-        return res.status(400).json({ error: "Empty request body" });
+        console.log("Empty or unparseable request body from Chartlink:", typeof req.body, req.body);
+        return res.status(400).json({ error: "Empty or invalid request body" });
       }
 
-      // Log the alert data for debugging
       console.log("Processing Chartlink alert:", alertData);
       console.log("User token:", userToken);
 
-      // Look up user by webhook token
-      const webhookConfig = await prisma.userSettings.findUnique({
-        where: { webhookToken: userToken },
-        include: { user: true }
-      });
-
-      if (!webhookConfig) {
-        console.log("Invalid webhook token:", userToken);
-        return res.status(401).json({ error: "Invalid webhook token" });
-      }
-
-      const userId = webhookConfig.userId;
-
-      // Rate limiting by IP
-      const clientIP = req.ip || req.connection.remoteAddress;
+      // Rate limiting by IP (early)
+      const clientIP = req.ip || req.connection?.remoteAddress || "unknown";
       if (!this.checkRateLimit(clientIP)) {
         return res.status(429).json({ error: "Rate limit exceeded" });
       }
 
-      // Generate idempotency key
-      const idempotencyKey = this.generateIdempotencyKey(alertData);
+      const baseKey = this.generateIdempotencyKey(alertData);
 
-      // Check for duplicate alerts
-      const existingAlert = await prisma.alert.findUnique({
-        where: { idempotencyKey }
-      });
-
-      if (existingAlert) {
-        return res.status(200).json({ 
-          message: "Alert already processed",
-          alertId: existingAlert.id,
-          status: existingAlert.status
+      if (userToken) {
+        // Single-user mode (token provided)
+        const webhookConfig = await prisma.userSettings.findUnique({
+          where: { webhookToken: userToken },
+          include: { user: true }
         });
+        if (!webhookConfig) {
+          console.log("Invalid webhook token:", userToken);
+          return res.status(401).json({ error: "Invalid webhook token" });
+        }
+        const userId = webhookConfig.userId;
+        const idempotencyKey = `${baseKey}:${userId}`;
+
+        const existingAlert = await prisma.alert.findUnique({ where: { idempotencyKey } });
+        if (existingAlert) {
+          return res.status(200).json({
+            message: "Alert already processed",
+            alertId: existingAlert.id,
+            status: existingAlert.status
+          });
+        }
+
+        const alertId = await this.createAlert(alertData, idempotencyKey, userId);
+        this.processAlertAsync(alertId, alertData, userId).catch(err =>
+          console.error(`Error processing alert ${alertId}:`, err)
+        );
+
+        return res.status(200).json({
+          message: "Alert received and queued for processing",
+          alertId,
+          status: "pending"
+        });
+      } else {
+        // Broadcast mode (no token - send to all users)
+        const users = await this.getUsersForStrategy(alertData);
+        if (!users.length) {
+          console.log("No eligible users found for broadcast");
+          return res.status(200).json({ message: "No eligible users, alert ignored" });
+        }
+
+        const queued = [];
+        await Promise.all(users.map(async (u) => {
+          try {
+            const userId = u.id;
+            const idempotencyKey = `${baseKey}:${userId}`;
+            const existingAlert = await prisma.alert.findUnique({ where: { idempotencyKey } });
+            if (existingAlert) {
+              queued.push({ userId, status: "duplicate", alertId: existingAlert.id });
+              return;
+            }
+            const alertId = await this.createAlert(alertData, idempotencyKey, userId);
+            queued.push({ userId, status: "queued", alertId });
+            this.processAlertAsync(alertId, alertData, userId).catch(err =>
+              console.error(`Error processing alert ${alertId} for user ${userId}:`, err)
+            );
+          } catch (e) {
+            console.error("Broadcast create/process error:", e);
+            queued.push({ userId: u.id, status: "error", error: e.message });
+          }
+        }));
+
+        return res.status(200).json({ message: "Alert received and broadcast queued", queued });
       }
-
-      // Process alert asynchronously
-      const alertId = await this.createAlert(alertData, idempotencyKey, userId);
-      
-      // Process in background
-      this.processAlertAsync(alertId, alertData, userId).catch(error => {
-        console.error(`Error processing alert ${alertId}:`, error);
-      });
-
-      // Respond immediately
-      res.status(200).json({
-        message: "Alert received and queued for processing",
-        alertId,
-        status: "pending"
-      });
 
     } catch (error) {
       console.error("Webhook processing error:", error);
