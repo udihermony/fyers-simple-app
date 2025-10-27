@@ -123,7 +123,7 @@ export default function WebhookTest() {
               display: "block",
               wordBreak: "break-all"
             }}>
-              {typeof window !== 'undefined' ? window.location.origin.replace('localhost:3000', 'fyers-simple-app-production.up.railway.app') + '/webhooks/chartlink' : 'Loading...'}
+              https://fyers-simple-app-production.up.railway.app/webhooks/chartlink
             </code>
           </div>
 
