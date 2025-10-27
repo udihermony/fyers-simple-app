@@ -409,6 +409,8 @@ app.get("/api/funds", async (req, res) => {
     const accessToken = await getUserAccessToken(req.user.id);
     if (!accessToken) return res.status(401).json({ error: "No token on file" });
     
+    console.log("Fetching funds from Fyers API for user:", req.user.id);
+    
     // Make direct API call to Fyers v3 funds endpoint
     const response = await fetch("https://api.fyers.in/v3/funds", {
       method: "GET",
