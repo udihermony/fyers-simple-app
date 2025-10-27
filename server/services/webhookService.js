@@ -337,15 +337,18 @@ class WebhookService {
     try {
       // Common Chartlink field mappings
       const mapping = {
-        symbol: alertData.symbol || alertData.instrument,
-        side: this.mapSide(alertData.side || alertData.action),
+        symbol: this.normalizeSymbol(
+          alertData.symbol || alertData.instrument || alertData.ticker || alertData.scrip,
+          alertData.exchange || alertData.exch
+        ),
+        side: this.mapSide(alertData.side || alertData.action || alertData.signal),
         type: this.mapOrderType(alertData.order_type || alertData.type),
         productType: alertData.product_type || alertData.product || "INTRADAY",
-        qty: parseInt(alertData.quantity || alertData.qty || alertData.volume),
-        limitPrice: parseFloat(alertData.limit_price || alertData.price),
-        stopPrice: parseFloat(alertData.stop_price || alertData.trigger_price),
-        stopLoss: parseFloat(alertData.stop_loss || alertData.sl),
-        takeProfit: parseFloat(alertData.take_profit || alertData.tp),
+        qty: parseInt(alertData.quantity || alertData.qty || alertData.volume || alertData.q, 10),
+        limitPrice: alertData.limit_price || alertData.price || alertData.ltp ? parseFloat(alertData.limit_price || alertData.price || alertData.ltp) : undefined,
+        stopPrice: alertData.stop_price || alertData.trigger_price || alertData.trigger ? parseFloat(alertData.stop_price || alertData.trigger_price || alertData.trigger) : undefined,
+        stopLoss: alertData.stop_loss || alertData.sl ? parseFloat(alertData.stop_loss || alertData.sl) : undefined,
+        takeProfit: alertData.take_profit || alertData.tp ? parseFloat(alertData.take_profit || alertData.tp) : undefined,
         orderTag: alertData.order_tag || alertData.tag,
         validity: alertData.validity || "DAY",
         offlineOrder: alertData.offline_order || false,
@@ -408,6 +411,25 @@ class WebhookService {
     };
     
     return typeMap[type] || 2; // Default to market
+  }
+
+  /**
+   * Normalize symbol to Fyers format (e.g., NSE:SBIN-EQ)
+   * @param {string} raw - Raw symbol
+   * @param {string} exch - Exchange
+   * @returns {string|null}
+   */
+  normalizeSymbol(raw, exch) {
+    if (!raw) return null;
+    
+    // If already in Fyers format like "NSE:SBIN-EQ", pass through
+    if (/^[A-Z]+:/.test(raw)) return raw;
+    
+    const upper = String(raw).toUpperCase().trim();
+    const ex = (exch || "NSE").toUpperCase();
+    
+    // Add default -EQ suffix for equities
+    return `${ex}:${upper}-EQ`;
   }
 
   /**
