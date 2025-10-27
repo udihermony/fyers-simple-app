@@ -449,8 +449,11 @@ app.get("/api/funds", async (req, res) => {
       fund_limit: result.fund_limit || []
     });
   } catch (e) {
-    console.error("funds error", e);
-    return res.status(500).json({ error: "Failed to fetch funds" });
+    console.error("funds error:", e.message, e.stack);
+    return res.status(500).json({ 
+      error: "Failed to fetch funds", 
+      details: e.message 
+    });
   }
 });
 
