@@ -344,11 +344,11 @@ class WebhookService {
         side: this.mapSide(alertData.side || alertData.action || alertData.signal),
         type: this.mapOrderType(alertData.order_type || alertData.type),
         productType: alertData.product_type || alertData.product || "INTRADAY",
-        qty: parseInt(alertData.quantity || alertData.qty || alertData.volume || alertData.q, 10),
-        limitPrice: alertData.limit_price || alertData.price || alertData.ltp ? parseFloat(alertData.limit_price || alertData.price || alertData.ltp) : undefined,
-        stopPrice: alertData.stop_price || alertData.trigger_price || alertData.trigger ? parseFloat(alertData.stop_price || alertData.trigger_price || alertData.trigger) : undefined,
-        stopLoss: alertData.stop_loss || alertData.sl ? parseFloat(alertData.stop_loss || alertData.sl) : undefined,
-        takeProfit: alertData.take_profit || alertData.tp ? parseFloat(alertData.take_profit || alertData.tp) : undefined,
+        qty: parseInt(alertData.quantity || alertData.qty || alertData.volume || alertData.q, 10) || 0,
+        limitPrice: this.parseFloatValue(alertData.limit_price || alertData.price || alertData.ltp),
+        stopPrice: this.parseFloatValue(alertData.stop_price || alertData.trigger_price || alertData.trigger),
+        stopLoss: this.parseFloatValue(alertData.stop_loss || alertData.sl),
+        takeProfit: this.parseFloatValue(alertData.take_profit || alertData.tp),
         orderTag: alertData.order_tag || alertData.tag,
         validity: alertData.validity || "DAY",
         offlineOrder: alertData.offline_order || false,
@@ -411,6 +411,17 @@ class WebhookService {
     };
     
     return typeMap[type] || 2; // Default to market
+  }
+
+  /**
+   * Parse float value safely
+   * @param {any} value - Value to parse
+   * @returns {number|undefined}
+   */
+  parseFloatValue(value) {
+    if (!value && value !== 0) return undefined;
+    const parsed = parseFloat(value);
+    return isNaN(parsed) ? undefined : parsed;
   }
 
   /**
