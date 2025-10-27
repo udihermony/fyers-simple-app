@@ -18,17 +18,25 @@ class TradingAPI {
    * @param {Object} app - Express app
    */
   setupRoutes(app) {
-    // Webhook endpoint for Chartlink (with user token)
-    app.post("/webhooks/chartlink/:userToken", async (req, res) => {
-      const userToken = req.params.userToken;
-      
-      // Log the incoming webhook for debugging
-      console.log("Chartlink webhook received:", {
-        userToken,
-        body: req.body,
-        headers: req.headers
+    // Webhook endpoint for Chartlink (single URL for all users - broadcast mode)
+    app.post("/webhooks/chartlink", (req, res) => {
+      console.log("Chartlink webhook received (broadcast):", { 
+        body: req.body, 
+        headers: req.headers,
+        contentType: req.headers['content-type']
       });
-      
+      webhookService.processChartlinkAlert(req, res, null);
+    });
+
+    // Webhook endpoint for Chartlink (with optional user token)
+    app.post("/webhooks/chartlink/:userToken", (req, res) => {
+      const userToken = req.params.userToken;
+      console.log("Chartlink webhook received (token):", { 
+        userToken,
+        body: req.body, 
+        headers: req.headers,
+        contentType: req.headers['content-type']
+      });
       webhookService.processChartlinkAlert(req, res, userToken);
     });
 

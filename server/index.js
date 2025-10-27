@@ -13,7 +13,11 @@ const symbolMaster = require("./services/symbolMaster");
 require("dotenv").config();
 
 const app = express();
+
+// Body parsers - support JSON, URL-encoded, and plain text
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(express.text({ type: ['text/plain', 'application/*+json'] }));
 
 const {
   PORT = 8080,
