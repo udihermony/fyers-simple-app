@@ -4,6 +4,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL;
+
 export default function WebhookTest() {
   const [alerts, setAlerts] = useState([]);
   const [isAutoRefresh, setIsAutoRefresh] = useState(false);
@@ -20,7 +22,7 @@ export default function WebhookTest() {
 
   const fetchAlerts = async () => {
     try {
-      const res = await fetch("/api/alerts", {
+      const res = await fetch(`${API_BASE}/api/alerts`, {
         credentials: "include"
       });
       if (res.ok) {
