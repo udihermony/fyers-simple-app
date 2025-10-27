@@ -6,7 +6,7 @@ import Link from "next/link";
 
 export default function WebhookTest() {
   const [alerts, setAlerts] = useState([]);
-  const [isAutoRefresh, setIsAutoRefresh] = useState(true);
+  const [isAutoRefresh, setIsAutoRefresh] = useState(false);
 
   useEffect(() => {
     if (isAutoRefresh) {
