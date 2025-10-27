@@ -409,14 +409,45 @@ app.get("/api/funds", async (req, res) => {
     const accessToken = await getUserAccessToken(req.user.id);
     if (!accessToken) return res.status(401).json({ error: "No token on file" });
     
-    const fyers = newFyersClient();
-    fyers.setAccessToken(accessToken);
-    const fn = fyers.getFunds || fyers.get_funds || fyers.funds;
+    // Make direct API call to Fyers v3 funds endpoint
+    const response = await fetch("https://api.fyers.in/v3/funds", {
+      method: "GET",
+      headers: {
+        "Authorization": `${FYERS_APP_ID}:${accessToken}`,
+        "Content-Type": "application/json"
+      }
+    });
+
+    if (!response.ok) {
+      console.error("Fyers funds API error:", response.status);
+      return res.status(response.status).json({ error: "Failed to fetch funds from Fyers" });
+    }
+
+    const result = await response.json();
     
-    if (!fn) return res.status(500).json({ error: "Funds API not available" });
+    // Transform the response to match frontend expectations
+    // Extract capital and commodity from fund_limit array
+    let capital = 0;
+    let commodity = 0;
+
+    // Find available balance from fund_limit
+    if (result.fund_limit && Array.isArray(result.fund_limit)) {
+      const availableBalance = result.fund_limit.find(item => 
+        item.title && item.title.toLowerCase().includes('available balance')
+      );
+      if (availableBalance) {
+        capital = availableBalance.equityAmount || 0;
+        commodity = availableBalance.commodityAmount || 0;
+      }
+    }
     
-    const result = await fn.call(fyers);
-    return res.json(result);
+    return res.json({
+      s: result.s || 'ok',
+      code: result.code || 200,
+      capital,
+      commodity,
+      fund_limit: result.fund_limit || []
+    });
   } catch (e) {
     console.error("funds error", e);
     return res.status(500).json({ error: "Failed to fetch funds" });
