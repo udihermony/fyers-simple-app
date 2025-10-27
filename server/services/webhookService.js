@@ -11,7 +11,7 @@ class WebhookService {
   constructor() {
     this.rateLimitMap = new Map(); // Track rate limits per IP
     this.rateLimitWindow = 60 * 1000; // 1 minute
-    this.maxRequestsPerMinute = 100; // Max requests per minute per IP
+    this.maxRequestsPerMinute = 600; // Max requests per minute per IP (increased for multiple Chartlink alerts)
   }
 
   /**
