@@ -724,7 +724,9 @@ export default function TradingDashboard() {
       working: '#f59e0b',
       filled: '#10b981',
       cancelled: '#6b7280',
-      rejected: '#ef4444'
+      rejected: '#ef4444',
+      pending: '#f59e0b',
+      processed: '#10b981'
     };
     return colors[status] || '#6b7280';
   };
