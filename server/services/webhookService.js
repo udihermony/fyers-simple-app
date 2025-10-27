@@ -15,14 +15,33 @@ class WebhookService {
    * Process Chartlink webhook alert
    * @param {Object} req - Express request
    * @param {Object} res - Express response
+   * @param {string} userToken - User token from URL
    */
-  async processChartlinkAlert(req, res) {
+  async processChartlinkAlert(req, res, userToken) {
     try {
       // Extract alert data
       const alertData = req.body;
       if (!alertData) {
+        console.log("Empty request body received from Chartlink");
         return res.status(400).json({ error: "Empty request body" });
       }
+
+      // Log the alert data for debugging
+      console.log("Processing Chartlink alert:", alertData);
+      console.log("User token:", userToken);
+
+      // Look up user by webhook token
+      const webhookConfig = await prisma.userSettings.findUnique({
+        where: { webhookToken: userToken },
+        include: { user: true }
+      });
+
+      if (!webhookConfig) {
+        console.log("Invalid webhook token:", userToken);
+        return res.status(401).json({ error: "Invalid webhook token" });
+      }
+
+      const userId = webhookConfig.userId;
 
       // Rate limiting by IP
       const clientIP = req.ip || req.connection.remoteAddress;
@@ -47,10 +66,10 @@ class WebhookService {
       }
 
       // Process alert asynchronously
-      const alertId = await this.createAlert(alertData, idempotencyKey);
+      const alertId = await this.createAlert(alertData, idempotencyKey, userId);
       
       // Process in background
-      this.processAlertAsync(alertId, alertData).catch(error => {
+      this.processAlertAsync(alertId, alertData, userId).catch(error => {
         console.error(`Error processing alert ${alertId}:`, error);
       });
 
@@ -117,12 +136,14 @@ class WebhookService {
    * Create alert record in database
    * @param {Object} alertData - Alert data
    * @param {string} idempotencyKey - Idempotency key
+   * @param {string} userId - User ID from webhook token
    * @returns {Promise<string>}
    */
-  async createAlert(alertData, idempotencyKey) {
-    // Find or create default strategy
+  async createAlert(alertData, idempotencyKey, userId) {
+    // Find or create default strategy for this user
     let strategy = await prisma.strategy.findFirst({
       where: { 
+        userId,
         name: alertData.strategy_name || "Default Chartlink Strategy"
       }
     });
@@ -131,7 +152,7 @@ class WebhookService {
       // Create a default strategy for Chartlink
       strategy = await prisma.strategy.create({
         data: {
-          userId: "system", // We'll handle user mapping later
+          userId,
           name: alertData.strategy_name || "Default Chartlink Strategy",
           modeOverride: null,
           requireManualReview: false,
@@ -147,7 +168,7 @@ class WebhookService {
 
     const alert = await prisma.alert.create({
       data: {
-        userId: "system", // We'll map to actual users during processing
+        userId,
         strategyId: strategy.id,
         source: "chartlink",
         rawPayload: alertData,
@@ -164,7 +185,7 @@ class WebhookService {
    * @param {string} alertId - Alert ID
    * @param {Object} alertData - Alert data
    */
-  async processAlertAsync(alertId, alertData) {
+  async processAlertAsync(alertId, alertData, userId) {
     try {
       // Map Chartlink fields to our order format
       const orderData = this.mapChartlinkToOrder(alertData);
@@ -174,25 +195,28 @@ class WebhookService {
         return;
       }
 
-      // Find users who want to follow this strategy
-      const users = await this.getUsersForStrategy(alertData);
-      
-      if (users.length === 0) {
-        await this.rejectAlert(alertId, "No users subscribed to this strategy");
+      // Get user with Fyers token
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        include: {
+          tokens: {
+            where: {
+              appId: process.env.FYERS_APP_ID
+            }
+          }
+        }
+      });
+
+      if (!user || !user.tokens || user.tokens.length === 0) {
+        await this.rejectAlert(alertId, "User not found or no Fyers token");
         return;
       }
 
-      // Process order for each user
-      for (const user of users) {
-        try {
-          await this.processOrderForUser(alertId, orderData, user);
-        } catch (error) {
-          console.error(`Error processing order for user ${user.id}:`, error);
-        }
-      }
+      // Process order for the user
+      await this.processOrderForUser(alertId, orderData, user);
 
       await this.updateAlertStatus(alertId, 'processed');
-      console.log(`Alert ${alertId} processed for ${users.length} users`);
+      console.log(`Alert ${alertId} processed for user ${userId}`);
 
     } catch (error) {
       console.error(`Error processing alert ${alertId}:`, error);
