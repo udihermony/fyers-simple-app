@@ -1,3 +1,6 @@
+// Page: User Profile
+// Path: web/pages/profile.js
+
 import { useEffect, useState } from "react";
 import Link from "next/link";
 

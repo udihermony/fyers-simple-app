@@ -1,3 +1,6 @@
+// File: Webhook Service (Chartlink Integration)
+// Path: server/services/webhookService.js
+
 const crypto = require("crypto");
 const { prisma } = require("../prisma/client");
 const orderValidation = require("../services/orderValidation");

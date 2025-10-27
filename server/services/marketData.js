@@ -1,3 +1,6 @@
+// File: Market Data Service
+// Path: server/services/marketData.js
+
 const { fyersModel } = require("fyers-api-v3");
 
 class MarketDataService {

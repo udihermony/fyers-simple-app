@@ -1,3 +1,6 @@
+// File: Paper Trading Engine
+// Path: server/services/paperEngine.js
+
 const { prisma } = require("../prisma/client");
 const marketData = require('./marketData');
 const symbolMaster = require('./symbolMaster');

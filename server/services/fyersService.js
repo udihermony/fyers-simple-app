@@ -1,3 +1,6 @@
+// File: Fyers API Service
+// Path: server/services/fyersService.js
+
 const { fyersModel, fyersOrderSocket } = require("fyers-api-v3");
 const { prisma } = require("../prisma/client");
 

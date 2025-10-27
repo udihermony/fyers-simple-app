@@ -1,3 +1,6 @@
+// File: Trading API Routes
+// Path: server/api/trading.js
+
 const { prisma } = require("../prisma/client");
 const orderValidation = require("../services/orderValidation");
 const paperEngine = require("../services/paperEngine");

@@ -1,3 +1,6 @@
+// File: Symbol Master Service
+// Path: server/services/symbolMaster.js
+
 const { prisma } = require("../prisma/client");
 
 class SymbolMasterService {

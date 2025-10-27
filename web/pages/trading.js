@@ -1,3 +1,6 @@
+// Page: Trading Dashboard
+// Path: web/pages/trading.js
+
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
