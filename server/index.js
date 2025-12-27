@@ -389,19 +389,47 @@ app.get("/api/quotes", async (req, res) => {
 // Holdings endpoint
 app.get("/api/holdings", async (req, res) => {
   if (!req.user) return res.status(401).json({ error: "Not authenticated" });
-  
+
   try {
     const accessToken = await getUserAccessToken(req.user.id);
     if (!accessToken) return res.status(401).json({ error: "No token on file" });
-    
+
     const fyers = newFyersClient();
     fyers.setAccessToken(accessToken);
     const fn = fyers.getHoldings || fyers.get_holdings || fyers.holdings;
-    
+
     if (!fn) return res.status(500).json({ error: "Holdings API not available" });
-    
+
     const result = await fn.call(fyers);
-    return res.json(result);
+
+    // Transform Fyers response to frontend format
+    let total_value = 0;
+    let total_pnl = 0;
+    const holdings = result?.holdings || [];
+
+    // Calculate totals
+    holdings.forEach(holding => {
+      const marketValue = holding.marketVal || holding.market_value || 0;
+      const pnl = holding.pl || holding.pnl || 0;
+      total_value += marketValue;
+      total_pnl += pnl;
+    });
+
+    // Return transformed response
+    return res.json({
+      s: result?.s || "ok",
+      code: result?.code || 200,
+      total_value,
+      total_pnl,
+      holdings: holdings.map(h => ({
+        symbol: h.symbol,
+        qty: h.quantity || h.qty || 0,
+        avg_price: h.buyAvg || h.avg_price || 0,
+        market_value: h.marketVal || h.market_value || 0,
+        pnl: h.pl || h.pnl || 0,
+        ltp: h.ltp || 0
+      }))
+    });
   } catch (e) {
     console.error("holdings error", e);
     return res.status(500).json({ error: "Failed to fetch holdings" });
