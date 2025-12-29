@@ -18,25 +18,40 @@ class TradingAPI {
    * @param {Object} app - Express app
    */
   setupRoutes(app) {
+    // Webhook health check (GET request)
+    app.get("/webhooks/chartlink", (req, res) => {
+      console.log("Webhook health check received");
+      res.json({
+        ok: true,
+        message: "Chartlink webhook endpoint is active",
+        timestamp: new Date().toISOString(),
+        url: req.originalUrl
+      });
+    });
+
     // Webhook endpoint for Chartlink (single URL for all users - broadcast mode)
     app.post("/webhooks/chartlink", (req, res) => {
-      console.log("Chartlink webhook received (broadcast):", { 
-        body: req.body, 
-        headers: req.headers,
-        contentType: req.headers['content-type']
-      });
+      console.log("=== CHARTLINK WEBHOOK RECEIVED (BROADCAST) ===");
+      console.log("Timestamp:", new Date().toISOString());
+      console.log("IP:", req.ip || req.connection?.remoteAddress);
+      console.log("Headers:", JSON.stringify(req.headers, null, 2));
+      console.log("Body type:", typeof req.body);
+      console.log("Body:", JSON.stringify(req.body, null, 2));
+      console.log("===========================================");
       webhookService.processChartlinkAlert(req, res, null);
     });
 
     // Webhook endpoint for Chartlink (with optional user token)
     app.post("/webhooks/chartlink/:userToken", (req, res) => {
       const userToken = req.params.userToken;
-      console.log("Chartlink webhook received (token):", { 
-        userToken,
-        body: req.body, 
-        headers: req.headers,
-        contentType: req.headers['content-type']
-      });
+      console.log("=== CHARTLINK WEBHOOK RECEIVED (TOKEN) ===");
+      console.log("Timestamp:", new Date().toISOString());
+      console.log("User Token:", userToken);
+      console.log("IP:", req.ip || req.connection?.remoteAddress);
+      console.log("Headers:", JSON.stringify(req.headers, null, 2));
+      console.log("Body type:", typeof req.body);
+      console.log("Body:", JSON.stringify(req.body, null, 2));
+      console.log("=========================================");
       webhookService.processChartlinkAlert(req, res, userToken);
     });
 
